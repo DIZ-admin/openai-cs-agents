@@ -95,6 +95,17 @@ async def baggage_tool(query: str) -> str:
         return "One carry-on and one checked bag (up to 50 lbs) are included."
     return "Please provide details about your baggage inquiry."
 
+@function_tool(
+    name_override="display_seat_map",
+    description_override="Display an interactive seat map to the customer so they can choose a new seat."
+)
+async def display_seat_map(
+    context: RunContextWrapper[AirlineAgentContext]
+) -> str:
+    """Trigger the UI to show an interactive seat map to the customer."""
+    # The returned string will be interpreted by the UI to open the seat selector.
+    return "DISPLAY_SEAT_MAP"
+
 # =========================
 # HOOKS
 # =========================
@@ -181,7 +192,7 @@ def seat_booking_instructions(
         "Use the following routine to support the customer.\n"
         f"1. The customer's confirmation number is {confirmation}."+
         "If this is not available, ask the customer for their confirmation number. If you have it, confirm that is the confirmation number they are referencing.\n"
-        "2. Ask the customer what their desired seat number is.\n"
+        "2. Ask the customer what their desired seat number is. You can also use the display_seat_map tool to show them an interactive seat map where they can click to select their preferred seat.\n"
         "3. Use the update seat tool to update the seat on the flight.\n"
         "If the customer asks a question that is not related to the routine, transfer back to the triage agent."
     )
@@ -191,7 +202,7 @@ seat_booking_agent = Agent[AirlineAgentContext](
     model="gpt-4.1",
     handoff_description="A helpful agent that can update a seat on a flight.",
     instructions=seat_booking_instructions,
-    tools=[update_seat],
+    tools=[update_seat, display_seat_map],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
 )
 

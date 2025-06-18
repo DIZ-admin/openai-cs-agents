@@ -283,6 +283,14 @@ async def chat_endpoint(req: ChatRequest):
                     metadata={"tool_args": tool_args},
                 )
             )
+            # If the tool is display_seat_map, send a special message so the UI can render the seat selector.
+            if tool_name == "display_seat_map":
+                messages.append(
+                    MessageResponse(
+                        content="DISPLAY_SEAT_MAP",
+                        agent=item.agent.name,
+                    )
+                )
         elif isinstance(item, ToolCallOutputItem):
             events.append(
                 AgentEvent(
