@@ -34,18 +34,18 @@ export function SeatMap({ onSeatSelect, selectedSeat }: SeatMapProps) {
     };
 
     const getSeatColor = (status: string, isExit: boolean) => {
-        // Available = green, Occupied = gray, Exit Row = yellow (pastel)
+        // Available = emerald, Occupied = gray, Exit Row = yellow (pastel)
         switch (status) {
             case 'occupied':
                 return 'bg-gray-300 text-gray-500 cursor-not-allowed';
             case 'selected':
-                return 'bg-green-600 text-white cursor-pointer hover:bg-green-700';
+                return 'bg-emerald-600 text-white cursor-pointer hover:bg-emerald-700';
             case 'available':
                 return isExit
                     ? 'bg-yellow-100 hover:bg-yellow-200 cursor-pointer border-yellow-300'
-                    : 'bg-green-100 hover:bg-green-200 cursor-pointer border-green-300';
+                    : 'bg-emerald-100 hover:bg-emerald-200 cursor-pointer border-emerald-300';
             default:
-                return 'bg-green-100';
+                return 'bg-emerald-100';
         }
     };
 
@@ -101,13 +101,13 @@ export function SeatMap({ onSeatSelect, selectedSeat }: SeatMapProps) {
     );
 
     return (
-        <Card className="w-full max-w-md mx-auto my-4 bg-gradient-to-b from-blue-50 to-white">
+        <Card className="w-full max-w-md mx-auto my-4 bg-blue-50">
             <CardContent className="p-4">
                 <div className="text-center mb-4">
                     <h3 className="font-semibold text-lg mb-2">Select Your Seat</h3>
                     <div className="flex justify-center gap-4 text-xs">
                         <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+                            <div className="w-3 h-3 bg-emerald-100 border border-emerald-300 rounded"></div>
                             <span>Available</span>
                         </div>
                         <div className="flex items-center gap-1">
