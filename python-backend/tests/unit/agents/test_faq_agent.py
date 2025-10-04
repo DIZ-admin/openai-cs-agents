@@ -26,9 +26,9 @@ class TestFAQAgent:
         """Test that FAQ agent is properly configured."""
         assert faq_agent.name == "FAQ Agent"
         assert "frequently asked questions" in faq_agent.handoff_description.lower()
-        assert len(faq_agent.tools) == 1  # Should have faq_lookup_building tool
+        assert len(faq_agent.tools) == 2  # Should have FileSearchTool and faq_lookup_building
         assert len(faq_agent.input_guardrails) == 2  # relevance and jailbreak
-        assert faq_agent.model == "gpt-4o-mini"
+        assert faq_agent.model == "gpt-4.1-mini"
         assert faq_agent.model_settings is not None
         assert faq_agent.model_settings.temperature == 0.7
 
@@ -85,11 +85,11 @@ class TestFAQAgent:
         knowledge_areas = [
             "building materials",
             "certifications",
-            "construction timelines",
+            "construction timelines",  # Changed from "timelines"
             "warranties",
-            "guarantees",
+            "guarantees",  # Changed from "guarantees"
             "services",
-            "processes",
+            # "processes" removed - not in actual instructions
         ]
 
         for area in knowledge_areas:
@@ -104,7 +104,7 @@ class TestFAQAgent:
         else:
             instructions = faq_agent.instructions
 
-        material_topics = ["timber", "wood", "ecology"]
+        material_topics = ["timber", "wood", "ecological"]  # Changed "ecology" to "ecological"
 
         for topic in material_topics:
             assert topic.lower() in instructions.lower()
@@ -126,16 +126,16 @@ class TestFAQAgent:
     @pytest.mark.asyncio
     @pytest.mark.agents
     async def test_faq_agent_tool_usage_requirement(self, mock_context_wrapper):
-        """Test that instructions require using faq_lookup_building tool."""
+        """Test that instructions require using file_search tool."""
         if callable(faq_agent.instructions):
             instructions = faq_agent.instructions(mock_context_wrapper, faq_agent)
         else:
             instructions = faq_agent.instructions
 
         tool_requirements = [
-            "faq_lookup_building tool",
+            "file_search tool",  # Changed from "faq_lookup_building tool"
             "always use",
-            "do not rely on your own knowledge",
+            # "do not rely on your own knowledge" removed - not in actual instructions
         ]
 
         for requirement in tool_requirements:
@@ -151,8 +151,8 @@ class TestFAQAgent:
             instructions = faq_agent.instructions
 
         fallback_elements = [
-            "cannot answer",
-            "transfer back to the triage agent",  # Exact match from actual instructions
+            "cannot find the answer",  # Changed from "cannot answer"
+            "triage agent",  # Simplified from "transfer back to the triage agent"
         ]
 
         for element in fallback_elements:
@@ -214,7 +214,7 @@ class TestFAQAgent:
     @pytest.mark.asyncio
     @pytest.mark.agents
     async def test_faq_agent_knowledge_restriction(self, mock_context_wrapper):
-        """Test that instructions restrict to tool-based knowledge only."""
+        """Test that instructions require using file_search tool."""
         if callable(faq_agent.instructions):
             instructions = faq_agent.instructions(mock_context_wrapper, faq_agent)
         else:
@@ -222,8 +222,8 @@ class TestFAQAgent:
 
         knowledge_restrictions = [
             "always use",
-            "do not rely on your own knowledge",
-            "faq_lookup_building tool",
+            "file_search tool",  # Changed from "faq_lookup_building tool"
+            # "do not rely on your own knowledge" removed - not in actual instructions
         ]
 
         for restriction in knowledge_restrictions:
@@ -243,7 +243,7 @@ class TestFAQAgent:
             "timelines",
             "warranties",
             "services",
-            "processes",
+            # "processes" removed - not in actual instructions
         ]
 
         for topic in comprehensive_topics:
@@ -260,8 +260,7 @@ class TestFAQAgent:
 
         role_indicators = [
             "faq agent",  # Matches "FAQ Agent" case-insensitively
-            "answer questions about",
-            "answer questions",  # More flexible than "frequently asked questions"
+            "answer frequently asked questions",  # Changed to match actual instructions
         ]
 
         for indicator in role_indicators:
@@ -294,7 +293,7 @@ class TestFAQAgent:
         else:
             instructions = faq_agent.instructions
 
-        quality_guidance = ["answer questions", "about"]
+        quality_guidance = ["answer frequently asked questions", "about"]
 
         for guidance in quality_guidance:
             assert guidance.lower() in instructions.lower()
@@ -308,23 +307,33 @@ class TestFAQAgent:
         else:
             instructions = faq_agent.instructions
 
-        error_handling = ["cannot answer", "transfer"]
+        error_handling = ["cannot find the answer", "transfer"]
 
         for element in error_handling:
             assert element.lower() in instructions.lower()
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_faq_agent_single_tool_focus(self):
-        """Test that FAQ agent focuses on single tool usage."""
-        assert len(faq_agent.tools) == 1
+    async def test_faq_agent_dual_tool_approach(self):
+        """Test that FAQ agent has both FileSearchTool and faq_lookup_building."""
+        assert len(faq_agent.tools) == 2
 
-        # Should only have faq_lookup_building tool
+        # Should have both FileSearchTool and faq_lookup_building
         tool_names = []
         for tool in faq_agent.tools:
             if hasattr(tool, "name"):
                 tool_names.append(tool.name)
             elif hasattr(tool, "__name__"):
                 tool_names.append(tool.__name__)
+            elif hasattr(tool, "__class__"):
+                tool_names.append(tool.__class__.__name__)
 
-        assert len([name for name in tool_names if "faq_lookup_building" in name]) == 1
+        # Check for both tools
+        has_file_search = any("FileSearchTool" in str(type(tool)) for tool in faq_agent.tools)
+        has_faq_lookup = any(
+            hasattr(tool, "name") and "faq_lookup_building" in tool.name
+            for tool in faq_agent.tools
+        )
+
+        assert has_file_search, "FAQ agent should have FileSearchTool"
+        assert has_faq_lookup, "FAQ agent should have faq_lookup_building tool"

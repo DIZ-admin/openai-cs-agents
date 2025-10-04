@@ -100,7 +100,7 @@ class TestTriageAgent:
     @pytest.mark.agents
     async def test_triage_agent_model_configuration(self):
         """Test that triage agent uses correct model settings."""
-        assert triage_agent.model == "gpt-4o-mini"
+        assert triage_agent.model == "gpt-4.1-mini"
         assert triage_agent.model_settings is not None
         assert triage_agent.model_settings.temperature == 0.7
         assert triage_agent.model_settings.max_tokens == 2000

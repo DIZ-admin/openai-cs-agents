@@ -31,6 +31,9 @@ from agents import (
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from pydantic import BaseModel
 
+# Import prompt loader for template-based instructions
+from prompt_loader import render_agent_instructions
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -43,6 +46,41 @@ if KNOWLEDGE_BASE_PATH.exists():
         KNOWLEDGE_BASE = json.load(f)
 else:
     print(f"⚠️  Warning: Knowledge base file not found at {KNOWLEDGE_BASE_PATH}")
+
+# Load pricing data
+PRICING_DATA_PATH = Path(__file__).parent / "data" / "pricing.json"
+PRICING_DATA = {}
+
+if PRICING_DATA_PATH.exists():
+    with open(PRICING_DATA_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        PRICING_DATA = data.get("pricing", {})
+else:
+    logger.warning(f"Pricing data file not found at {PRICING_DATA_PATH}")
+
+# Load specialists data
+SPECIALISTS_DATA_PATH = Path(__file__).parent / "data" / "specialists.json"
+SPECIALISTS_DATA = {}
+TIME_SLOTS = []
+
+if SPECIALISTS_DATA_PATH.exists():
+    with open(SPECIALISTS_DATA_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        SPECIALISTS_DATA = data.get("specialists", {})
+        TIME_SLOTS = data.get("time_slots", [])
+else:
+    logger.warning(f"Specialists data file not found at {SPECIALISTS_DATA_PATH}")
+
+# Load projects data
+PROJECTS_DATA_PATH = Path(__file__).parent / "data" / "projects.json"
+PROJECTS_DATA = {}
+
+if PROJECTS_DATA_PATH.exists():
+    with open(PROJECTS_DATA_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        PROJECTS_DATA = data.get("projects", {})
+else:
+    logger.warning(f"Projects data file not found at {PROJECTS_DATA_PATH}")
 
 
 # =========================
@@ -301,9 +339,9 @@ async def estimate_project_cost_impl(
             "Please provide a valid project area."
         )
 
-    # Base prices per m² in CHF (demo values)
-    # Using enum values as keys for type safety
-    base_prices = {
+    # Load base prices from configuration
+    # Fallback to hardcoded values if config not loaded
+    base_prices = PRICING_DATA if PRICING_DATA else {
         ProjectType.EINFAMILIENHAUS.value: {
             ConstructionType.HOLZBAU.value: 3000,
             ConstructionType.SYSTEMBAU.value: 2500,
@@ -397,24 +435,35 @@ async def check_specialist_availability(
 ) -> str:
     """Check availability of specialists for consultation."""
     try:
-        # Specialist mapping
-        specialists = {
-            "Architekt": ["André Arnold", "Stefan Gisler"],
-            "Holzbau-Ingenieur": ["Andreas Wermelinger", "Tobias Wili"],
-            "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"],
-            "Planner": ["André Arnold", "Stefan Gisler"],
-            "Engineer": ["Andreas Wermelinger", "Tobias Wili"],
-        }
+        # Load specialists from configuration
+        if SPECIALISTS_DATA and specialist_type in SPECIALISTS_DATA:
+            specialist_info = SPECIALISTS_DATA[specialist_type]
+            available = specialist_info.get("names", ["Specialist"])
+        else:
+            # Fallback to hardcoded values
+            specialists = {
+                "Architekt": ["André Arnold", "Stefan Gisler"],
+                "Holzbau-Ingenieur": ["Andreas Wermelinger", "Tobias Wili"],
+                "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"],
+                "Planner": ["André Arnold", "Stefan Gisler"],
+                "Engineer": ["Andreas Wermelinger", "Tobias Wili"],
+            }
+            available = specialists.get(specialist_type, ["Specialist"])
 
-        available = specialists.get(specialist_type, ["Specialist"])
+        # Load time slots from configuration
+        time_slots = TIME_SLOTS if TIME_SLOTS else [
+            "09:00-10:00",
+            "14:00-15:00",
+            "16:00-17:00"
+        ]
+
+        slots_text = "\n".join([f"- {slot}" for slot in time_slots])
 
         return (
             f"📅 Available {specialist_type}:\n"
             f"{', '.join(available)}\n\n"
             f"Free time slots on {preferred_date}:\n"
-            f"- 09:00-10:00\n"
-            f"- 14:00-15:00\n"
-            f"- 16:00-17:00\n\n"
+            f"{slots_text}\n\n"
             f"Office location: ERNI Gruppe, Guggibadstrasse 8, 6288 Schongau"
         )
     except ValueError as e:
@@ -515,8 +564,9 @@ async def get_project_status(
 ) -> str:
     """Get the current status of a building project."""
     try:
-        # Mock project data (in production, this would query CRM/ERP)
-        mock_projects = {
+        # Load project data from configuration
+        # In production, this would query CRM/ERP
+        projects = PROJECTS_DATA if PROJECTS_DATA else {
             "2024-156": {
                 "type": ProjectType.EINFAMILIENHAUS.value,
                 "location": "Muri",
@@ -543,7 +593,7 @@ async def get_project_status(
             },
         }
 
-        project = mock_projects.get(project_number)
+        project = projects.get(project_number)
         if not project:
             return (
                 f"❌ Project {project_number} not found.\n"
@@ -773,22 +823,10 @@ project_information_agent = Agent[BuildingProjectContext](
     model=MAIN_AGENT_MODEL,
     model_settings=MAIN_AGENT_SETTINGS,
     handoff_description="Provides general information about ERNI's building process and services.",
-    instructions=f"""{RECOMMENDED_PROMPT_PREFIX}
-    You are a Project Information Agent for ERNI Gruppe, a leading Swiss timber construction company.
-
-    Your role is to explain to customers:
-    1. The building process (Planning → Production → Assembly → Finishing)
-    2. Advantages of timber construction
-    3. ERNI's services (6 divisions: Planung, Holzbau, Spenglerei, Ausbau, Realisation, Agrar)
-    4. Types of projects (Einfamilienhaus, Mehrfamilienhaus, Agrar buildings)
-    5. ERNI's certifications (Minergie partner, Holzbau Plus)
-
-    Be friendly and informative. Use the faq_lookup_building tool to answer specific questions.
-
-    If the customer wants a cost estimate, transfer to the Cost Estimation Agent.
-    If they want to book a consultation, transfer to the Appointment Booking Agent.
-    If they ask about an existing project status, transfer to the Project Status Agent.
-    For other questions, transfer back to the Triage Agent.""",
+    instructions=render_agent_instructions(
+        "project_information",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
+    ),
     tools=[faq_lookup_building],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
     output_guardrails=[pii_guardrail],
@@ -812,19 +850,11 @@ def cost_estimation_instructions(
     """
     ctx = run_context.context
     inquiry_id = ctx.inquiry_id or "[unknown]"
-    return (
-        f"{RECOMMENDED_PROMPT_PREFIX}\n"
-        "You are a Cost Estimation Agent for ERNI Gruppe.\n\n"
-        f"Inquiry ID: {inquiry_id}\n\n"
-        "Follow this procedure:\n"
-        "1. Ask the customer about their project type (Einfamilienhaus, Mehrfamilienhaus, Agrar, Renovation)\n"
-        "2. Ask for the area in square meters (m²)\n"
-        "3. Ask about construction type preference (Holzbau/timber frame or Systembau/system construction)\n"
-        "4. Use the estimate_project_cost tool to calculate a preliminary estimate\n"
-        "5. Emphasize this is a preliminary estimate\n"
-        "6. Offer to book a consultation with an architect for a detailed quote\n\n"
-        "If the customer wants to book a consultation, transfer to the Appointment Booking Agent.\n"
-        "For other questions, transfer back to the Triage Agent."
+
+    return render_agent_instructions(
+        "cost_estimation",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
+        inquiry_id=inquiry_id,
     )
 
 
@@ -857,17 +887,11 @@ def project_status_instructions(
     """
     ctx = run_context.context
     project_num = ctx.project_number or "[unknown]"
-    return (
-        f"{RECOMMENDED_PROMPT_PREFIX}\n"
-        "You are a Project Status Agent for ERNI Gruppe.\n\n"
-        f"Current project number: {project_num}\n\n"
-        "Follow this procedure:\n"
-        "1. Ask the customer for their project number (format: YYYY-XXX, e.g., 2024-156)\n"
-        "2. Use the get_project_status tool to retrieve project information\n"
-        "3. Explain the current stage and next milestones clearly\n"
-        "4. Answer any follow-up questions about the project\n\n"
-        "If the customer has questions about the process, transfer to the Project Information Agent.\n"
-        "For other questions, transfer back to the Triage Agent."
+
+    return render_agent_instructions(
+        "project_status",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
+        project_number=project_num,
     )
 
 
@@ -901,21 +925,12 @@ def appointment_booking_instructions(
     ctx = run_context.context
     inquiry_id = ctx.inquiry_id or "[unknown]"
     booked = ctx.consultation_booked
-    return (
-        f"{RECOMMENDED_PROMPT_PREFIX}\n"
-        "You are an Appointment Booking Agent for ERNI Gruppe.\n\n"
-        f"Inquiry ID: {inquiry_id}\n"
-        f"Consultation booked: {booked}\n\n"
-        "Follow this procedure:\n"
-        "1. Ask what type of specialist they need "
-        "(Architekt/Architect, Holzbau-Ingenieur/Timber Engineer, Bauleiter/Construction Manager)\n"
-        "2. Ask for their preferred date\n"
-        "3. Use check_specialist_availability to show available time slots\n"
-        "4. Confirm their choice of date and time\n"
-        "5. Collect their contact information (name, email, phone)\n"
-        "6. Use book_consultation to confirm the booking\n\n"
-        "Consultations take place at: ERNI Gruppe, Guggibadstrasse 8, 6288 Schongau\n\n"
-        "For other questions, transfer back to the Triage Agent."
+
+    return render_agent_instructions(
+        "appointment_booking",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
+        inquiry_id=inquiry_id,
+        consultation_booked=booked,
     )
 
 
@@ -936,114 +951,10 @@ faq_agent = Agent[BuildingProjectContext](
     model=MAIN_AGENT_MODEL,
     model_settings=MAIN_AGENT_SETTINGS,
     handoff_description="Answers frequently asked questions about ERNI and building with timber.",
-    instructions=f"""{RECOMMENDED_PROMPT_PREFIX}
-    You are an FAQ Agent for ERNI Gruppe, a leading Swiss timber construction company.
-
-    You have access to a comprehensive knowledge base about ERNI Gruppe through the file_search tool, including:
-    1. Detailed company information (erni_knowledge_base.json)
-    2. Complete website sitemap with all page URLs (erni_sitemap.json)
-
-    Use the file_search tool to answer questions about:
-    - Company information (location, contact, team, history)
-    - Building materials (timber, wood, ecology, advantages)
-    - Certifications (Minergie-Fachpartner, Holzbau Plus)
-    - Construction timelines and building process
-    - Warranties and guarantees
-    - ERNI's 6 divisions and services (Planung, Holzbau, Spenglerei, Ausbau, Realisation, Agrar)
-    - Project types (Einfamilienhaus, Mehrfamilienhaus, Agrar, Renovation)
-    - Pricing and cost estimates
-    - Vision, values, and company culture
-
-    IMPORTANT - INFORMATION ACCURACY:
-    - Always use the file_search tool to find accurate information from the knowledge base
-    - Do NOT rely on your own knowledge or make up information
-    - Provide specific details from the knowledge base (names, phone numbers, addresses, etc.)
-    - Be friendly and professional
-    - You can communicate in German or English
-
-    CRITICAL - PROVIDING WEBSITE LINKS (MANDATORY):
-    - The sitemap (erni_sitemap.json) contains ALL ERNI Gruppe website pages with their complete URLs
-    - You MUST use file_search to retrieve actual URLs from erni_sitemap.json
-    - You MUST include 1-3 relevant website links in EVERY response (unless transferring to another agent)
-    - Links MUST be in clickable markdown format: [Descriptive Text](https://www.erni-gruppe.ch/page-path)
-    - NEVER provide just page names without URLs - this is NOT helpful to customers
-    - NEVER say "you can find this on our website" without providing the actual URL
-    - ALWAYS retrieve the full URL from the sitemap and include it in your response
-    - Provide link descriptions in the customer's language (German or English)
-    - Do NOT overwhelm the user with too many links (maximum 3 per response)
-
-    WRONG (DO NOT DO THIS):
-    ❌ "Sie finden mehr Informationen auf unserer Planungsseite"
-    ❌ "Besuchen Sie unsere Webseite für Details"
-    ❌ "Dachservice & Unterhalt – Wartung, Reparaturen, Inspektionen"
-
-    CORRECT (ALWAYS DO THIS):
-    ✅ "Mehr Informationen: [Planung](https://www.erni-gruppe.ch/planung)"
-    ✅ "Details finden Sie hier: [Dachservice & Unterhalt](https://www.erni-gruppe.ch/spenglerei/dachservice-unterhalt)"
-    ✅ "📋 [Planungsdienstleistungen](https://www.erni-gruppe.ch/planung)"
-
-    EXAMPLES OF WHEN TO PROVIDE LINKS:
-
-    Example 1 - Service Question:
-    Customer: "What planning services do you offer?"
-    Response: "ERNI Gruppe bietet umfassende Planungsdienstleistungen an:
-    - Entwurf & Vorprojekt
-    - Detaillierte Planungsarbeit
-    - Baubewilligung
-    - Bauleitung
-    - Minergie-Berechnungen
-
-    Mehr Informationen finden Sie hier:
-    📋 [Planung - Übersicht](https://www.erni-gruppe.ch/planung)
-    📐 [Entwurf & Vorprojekt](https://www.erni-gruppe.ch/planung/entwurf-vorprojekt)"
-
-    Example 2 - Contact Question:
-    Customer: "How can I contact ERNI?"
-    Response: "Sie können ERNI Gruppe wie folgt kontaktieren:
-    📞 Telefon: 041 570 70 70
-    📧 E-Mail: kontakt@erni-gruppe.ch
-    📍 Adresse: Guggibadstrasse 8, 6288 Schongau
-
-    Weitere Kontaktmöglichkeiten:
-    📞 [Kontaktseite](https://www.erni-gruppe.ch/kontakt)
-    📍 [Standort & Anfahrt](https://www.erni-gruppe.ch/erni-gruppe/standort-kontakt)"
-
-    Example 3 - Certification Question:
-    Customer: "What certifications does ERNI have?"
-    Response: "ERNI Gruppe verfügt über folgende Zertifizierungen:
-    ✓ Minergie-Fachpartner Gebäudehülle
-    ✓ Holzbau Plus (als eines der ersten Holzbauunternehmen)
-
-    Diese Zertifizierungen garantieren höchste Qualität und Energieeffizienz.
-
-    Mehr erfahren:
-    🏆 [Mitgliedschaften & Partner](https://www.erni-gruppe.ch/erni-gruppe/mitgliedschaften-partner)"
-
-    Example 4 - Roof Maintenance Question:
-    Customer: "Где на сайте почитать о ремонте крыши?"
-    Response: "Информацию о ремонте и обслуживании крыш вы найдете здесь:
-
-    🔧 [Dachservice & Unterhalt](https://www.erni-gruppe.ch/spenglerei/dachservice-unterhalt) – Wartung, Reparaturen, Inspektionen
-    🏠 [Spenglerei - Übersicht](https://www.erni-gruppe.ch/spenglerei) – Все кровельные услуги
-
-    ERNI предлагает профессиональное обслуживание крыш, ремонт и регулярные инспекции."
-
-    LINK SELECTION GUIDELINES:
-    - For service questions → Link to specific service page (Planung, Holzbau, Spenglerei, Ausbau, Realisation, Agrar)
-    - For contact questions → Link to contact page and/or location page
-    - For team questions → Link to team page
-    - For certification questions → Link to memberships/partners page
-    - For company info → Link to relevant company pages (about, vision, history)
-    - For project examples → Link to references pages
-    - For general questions → Link to main overview pages
-
-    REMEMBER:
-    1. Use file_search to find URLs in erni_sitemap.json
-    2. Every response MUST include actual clickable URLs in format [Text](https://www.erni-gruppe.ch/...)
-    3. Never mention a page without providing its URL
-    4. The customer should be able to click the link immediately - no need to ask for it
-
-    If you cannot find an answer in the knowledge base, politely say so and offer to transfer to the Triage Agent.""",
+    instructions=render_agent_instructions(
+        "faq",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
+    ),
     tools=[
         FileSearchTool(
             max_num_results=5,
@@ -1055,22 +966,15 @@ faq_agent = Agent[BuildingProjectContext](
     output_guardrails=[pii_guardrail],
 )
 
-# Triage Agent
+# Triage Agent (defined after all other agents for handoff references)
 triage_agent = Agent[BuildingProjectContext](
     name="Triage Agent",
     model=MAIN_AGENT_MODEL,
     model_settings=MAIN_AGENT_SETTINGS,
     handoff_description="Main routing agent that directs customers to the appropriate specialist.",
-    instructions=(
-        f"{RECOMMENDED_PROMPT_PREFIX} "
-        "You are a helpful triage agent for ERNI Gruppe, a leading Swiss timber construction company.\n\n"
-        "Welcome customers warmly and determine their needs:\n"
-        "- General information about building → Project Information Agent\n"
-        "- Cost estimates → Cost Estimation Agent\n"
-        "- Project status updates → Project Status Agent\n"
-        "- Book a consultation → Appointment Booking Agent\n"
-        "- Specific questions (materials, timelines, warranties) → FAQ Agent\n\n"
-        "You can communicate in German or English. Be professional and friendly."
+    instructions=render_agent_instructions(
+        "triage",
+        recommended_prompt_prefix=RECOMMENDED_PROMPT_PREFIX,
     ),
     handoffs=[
         project_information_agent,
