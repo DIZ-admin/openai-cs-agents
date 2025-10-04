@@ -18,7 +18,7 @@ export function Guardrails({ guardrails, inputGuardrails }: GuardrailsProps) {
   };
 
   const guardrailDescriptionMap: Record<string, string> = {
-    "Relevance Guardrail": "Ensure messages are relevant to airline support",
+    "Relevance Guardrail": "Ensure messages are relevant to building and construction",
     "Jailbreak Guardrail":
       "Detect and block attempts to bypass or override system instructions",
   };
@@ -44,7 +44,7 @@ export function Guardrails({ guardrails, inputGuardrails }: GuardrailsProps) {
   return (
     <PanelSection
       title="Guardrails"
-      icon={<Shield className="h-4 w-4 text-blue-600" />}
+      icon={<Shield className="h-4 w-4 text-[#928472]" />}
     >
       <div className="grid grid-cols-3 gap-3">
         {guardrailsToShow.map((gr) => (

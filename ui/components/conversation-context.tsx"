@@ -6,11 +6,19 @@ import { BookText } from "lucide-react";
 
 interface ConversationContextProps {
   context: {
-    passenger_name?: string;
-    confirmation_number?: string;
-    seat_number?: string;
-    flight_number?: string;
-    account_number?: string;
+    customer_name?: string;
+    customer_email?: string;
+    customer_phone?: string;
+    project_number?: string;
+    project_type?: string;
+    construction_type?: string;
+    area_sqm?: number;
+    location?: string;
+    budget_chf?: number;
+    preferred_start_date?: string;
+    consultation_booked?: boolean;
+    specialist_assigned?: string;
+    inquiry_id?: string;
   };
 }
 
@@ -18,7 +26,7 @@ export function ConversationContext({ context }: ConversationContextProps) {
   return (
     <PanelSection
       title="Conversation Context"
-      icon={<BookText className="h-4 w-4 text-blue-600" />}
+      icon={<BookText className="h-4 w-4 text-[#928472]" />}
     >
       <Card className="bg-gradient-to-r from-white to-gray-50 border-gray-200 shadow-sm">
         <CardContent className="p-3">
@@ -28,17 +36,17 @@ export function ConversationContext({ context }: ConversationContextProps) {
                 key={key}
                 className="flex items-center gap-2 bg-white p-2 rounded-md border border-gray-200 shadow-sm transition-all"
               >
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <div className="w-2 h-2 rounded-full bg-[#928472]"></div>
                 <div className="text-xs">
                   <span className="text-zinc-500 font-light">{key}:</span>{" "}
                   <span
                     className={
-                      value
+                      value !== null && value !== undefined
                         ? "text-zinc-900 font-light"
                         : "text-gray-400 italic"
                     }
                   >
-                    {value || "null"}
+                    {value !== null && value !== undefined ? String(value) : "null"}
                   </span>
                 </div>
               </div>

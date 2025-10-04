@@ -16,7 +16,7 @@ export function AgentsList({ agents, currentAgent }: AgentsListProps) {
   return (
     <PanelSection
       title="Available Agents"
-      icon={<Bot className="h-4 w-4 text-blue-600" />}
+      icon={<Bot className="h-4 w-4 text-[#928472]" />}
     >
       <div className="grid grid-cols-3 gap-3">
         {agents.map((agent) => (
@@ -28,7 +28,7 @@ export function AgentsList({ agents, currentAgent }: AgentsListProps) {
                 ? ""
                 : "opacity-50 filter grayscale cursor-not-allowed pointer-events-none"
             } ${
-              agent.name === currentAgent ? "ring-1 ring-blue-500 shadow-md" : ""
+              agent.name === currentAgent ? "ring-1 ring-[#928472] shadow-md" : ""
             }`}
           >
             <CardHeader className="p-3 pb-1">
@@ -41,7 +41,7 @@ export function AgentsList({ agents, currentAgent }: AgentsListProps) {
                 {agent.description}
               </p>
               {agent.name === currentAgent && (
-                <Badge className="mt-2 bg-blue-600 hover:bg-blue-700 text-white">
+                <Badge className="mt-2 bg-[#928472] hover:bg-[#7a6f64] text-white">
                   Active
                 </Badge>
               )}
