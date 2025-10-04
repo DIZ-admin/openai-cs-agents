@@ -26,7 +26,9 @@ This repository includes an **adapted version for ERNI Gruppe**, a leading Swiss
 - **Branding:** ERNI brown color scheme (#928472)
 - **Language:** Bilingual support (German/English)
 
-📖 **See [ERNI_ADAPTATION.md](ERNI_ADAPTATION.md) for detailed documentation.**
+### Documentation:
+- 📖 **[ERNI_ADAPTATION.md](ERNI_ADAPTATION.md)** - Business context and adaptation overview
+- 🤖 **[AGENTS.md](AGENTS.md)** - Complete technical documentation of the multi-agent system
 
 ## How to use
 
