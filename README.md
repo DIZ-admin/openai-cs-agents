@@ -52,6 +52,8 @@ An intelligent multi-agent system built for **ERNI Gruppe**, a leading Swiss tim
 |----------|-------------|
 | **[AGENTS.md](AGENTS.md)** | Complete technical documentation of the multi-agent system |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Production deployment guide with SSL, monitoring, security |
+| **[STAGING_DEPLOYMENT.md](python-backend/STAGING_DEPLOYMENT.md)** | **NEW:** Staging deployment guide and testing procedures |
+| **[CHANGELOG.md](python-backend/CHANGELOG.md)** | **NEW:** Version history and release notes |
 | **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)** | Pre-deployment and post-deployment checklist |
 | **[ERNI_ADAPTATION.md](ERNI_ADAPTATION.md)** | Business context and adaptation overview |
 
@@ -294,6 +296,82 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)** for comprehensive production deployment i
 
 ---
 
+## 🧪 Testing
+
+### Run All Tests
+
+```bash
+cd python-backend
+source .venv/bin/activate
+python -m pytest tests/ -v
+```
+
+**Test Coverage:**
+- ✅ **228 tests** (100% passing)
+- ✅ **90.04% code coverage** (exceeds 80% requirement)
+- ✅ Unit tests for all agents, tools, and guardrails
+- ✅ Integration tests for API endpoints
+- ✅ Mock data for offline testing
+
+### Test Categories
+
+**Unit Tests:**
+- Agent behavior and instructions
+- Tool functionality (cost estimation, booking, FAQ)
+- Guardrails (relevance, jailbreak protection)
+- Context management
+
+**Integration Tests:**
+- API endpoints (`/health`, `/readiness`, `/chat`, `/agents`)
+- Agent handoffs and state management
+- Error handling and rate limiting
+
+### Run Specific Tests
+
+```bash
+# Unit tests only
+pytest tests/unit/ -v
+
+# Integration tests only
+pytest tests/integration/ -v
+
+# With coverage report
+pytest tests/ --cov=. --cov-report=html
+# Open htmlcov/index.html in browser
+```
+
+---
+
+## 🚀 Staging Deployment
+
+### Quick Staging Setup
+
+```bash
+# 1. Navigate to backend
+cd python-backend
+
+# 2. Copy staging environment
+cp .env.staging .env
+
+# 3. Configure required variables
+# - OPENAI_API_KEY (your staging key)
+# - CORS_ORIGINS (your staging domain)
+# - SECRET_KEY (generate with: openssl rand -hex 32)
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Run tests
+python -m pytest tests/ -v
+
+# 6. Start server
+uvicorn api:app --host 0.0.0.0 --port 8000 --env-file .env
+```
+
+**For detailed staging deployment instructions, see [STAGING_DEPLOYMENT.md](python-backend/STAGING_DEPLOYMENT.md)**
+
+---
+
 ## 🔧 Customization
 
 This system is designed for ERNI Gruppe but can be adapted for other use cases:
@@ -424,6 +502,52 @@ We welcome contributions! Please follow these steps:
 - Write tests for new features
 - Update documentation
 - Run linters before committing
+
+### Testing
+
+The project includes a comprehensive test suite with **80%+ code coverage**.
+
+#### Running Tests
+
+```bash
+# Install test dependencies
+cd python-backend
+pip install pytest pytest-asyncio pytest-mock pytest-cov faker
+
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=. --cov-report=html --cov-report=term-missing
+
+# Run specific test categories
+pytest tests/unit/ -v                    # Unit tests only
+pytest tests/integration/ -v             # Integration tests only
+pytest tests/unit/tools/ -v              # Tool tests only
+
+# Run tests in parallel (faster)
+pytest tests/ -n auto -v
+```
+
+#### Test Coverage
+
+Comprehensive tests for:
+- **Guardrails**: Input validation and security checks
+- **Tools**: All 5 agent tools (FAQ lookup, cost estimation, specialist availability, consultation booking, project status)
+- **Agents**: All 6 specialized agents (Triage, Project Information, Cost Estimation, Project Status, Appointment Booking, FAQ)
+- **API Endpoints**: Health checks, readiness checks, and chat API
+- **Integration**: End-to-end API testing with mocked dependencies
+
+#### Continuous Integration
+
+Tests run automatically via GitHub Actions on:
+- Push to `main`, `production`, `develop` branches
+- Pull requests to `main`, `production`
+- Multiple Python versions (3.10, 3.11, 3.12)
+- Security scanning with bandit and safety
+- Docker build testing
+
+See `.github/workflows/test.yml` for the complete CI/CD pipeline.
 
 ---
 
