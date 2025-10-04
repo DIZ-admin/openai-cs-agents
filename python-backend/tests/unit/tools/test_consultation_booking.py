@@ -28,7 +28,7 @@ class TestBookConsultation:
         context = BuildingProjectContext(
             customer_name="Hans Müller",
             customer_email="hans.mueller@example.com",
-            customer_phone="+41 79 123 45 67"
+            customer_phone="+41 79 123 45 67",
         )
         wrapper = MagicMock(spec=RunContextWrapper)
         wrapper.context = context
@@ -45,7 +45,7 @@ class TestBookConsultation:
             time="14:00",
             customer_name="John Doe",
             customer_email="john.doe@example.com",
-            customer_phone="+41 79 999 88 77"
+            customer_phone="+41 79 999 88 77",
         )
 
         assert isinstance(result, str)
@@ -77,7 +77,7 @@ class TestBookConsultation:
             time="09:00",
             customer_name="Maria Schmidt",
             customer_email="maria.schmidt@example.com",
-            customer_phone="+41 79 888 77 66"
+            customer_phone="+41 79 888 77 66",
         )
 
         assert "Specialist: Holzbau-Ingenieur" in result
@@ -89,7 +89,9 @@ class TestBookConsultation:
         assert mock_context_wrapper.context.consultation_booked is True
         assert mock_context_wrapper.context.specialist_assigned == "Holzbau-Ingenieur"
         assert mock_context_wrapper.context.customer_name == "Maria Schmidt"
-        assert mock_context_wrapper.context.customer_email == "maria.schmidt@example.com"
+        assert (
+            mock_context_wrapper.context.customer_email == "maria.schmidt@example.com"
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.tools
@@ -102,7 +104,7 @@ class TestBookConsultation:
             time="16:00",
             customer_name="Peter Weber",
             customer_email="peter.weber@example.com",
-            customer_phone="+41 79 777 66 55"
+            customer_phone="+41 79 777 66 55",
         )
 
         assert "Specialist: Bauleiter" in result
@@ -117,7 +119,9 @@ class TestBookConsultation:
 
     @pytest.mark.asyncio
     @pytest.mark.tools
-    async def test_book_consultation_with_customer_email(self, context_with_customer_info):
+    async def test_book_consultation_with_customer_email(
+        self, context_with_customer_info
+    ):
         """Test booking consultation with customer info using REAL function."""
         result = await book_consultation_impl(
             context=context_with_customer_info,
@@ -126,7 +130,7 @@ class TestBookConsultation:
             time="10:00",
             customer_name="Hans Müller",
             customer_email="hans.mueller@example.com",
-            customer_phone="+41 79 123 45 67"
+            customer_phone="+41 79 123 45 67",
         )
 
         assert "Confirmation sent to hans.mueller@example.com" in result
@@ -135,7 +139,10 @@ class TestBookConsultation:
         # Check context updates
         assert context_with_customer_info.context.consultation_booked is True
         assert context_with_customer_info.context.specialist_assigned == "Architekt"
-        assert context_with_customer_info.context.customer_email == "hans.mueller@example.com"
+        assert (
+            context_with_customer_info.context.customer_email
+            == "hans.mueller@example.com"
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.tools
@@ -148,7 +155,7 @@ class TestBookConsultation:
             time="10:00",
             customer_name="Test User",
             customer_email="test@example.com",
-            customer_phone="+41 79 000 00 00"
+            customer_phone="+41 79 000 00 00",
         )
 
         # Verify all contact data is saved
@@ -179,7 +186,7 @@ class TestBookConsultation:
                 time=time_slot,
                 customer_name="Time Test",
                 customer_email="time@example.com",
-                customer_phone="+41 79 111 11 11"
+                customer_phone="+41 79 111 11 11",
             )
 
             assert f"Time: {time_slot}" in result
@@ -206,7 +213,7 @@ class TestBookConsultation:
                 time="14:00",
                 customer_name="Date Test",
                 customer_email="date@example.com",
-                customer_phone="+41 79 222 22 22"
+                customer_phone="+41 79 222 22 22",
             )
 
             assert f"Date: {date}" in result
@@ -214,7 +221,9 @@ class TestBookConsultation:
 
     @pytest.mark.asyncio
     @pytest.mark.tools
-    async def test_book_consultation_context_preservation(self, context_with_customer_info):
+    async def test_book_consultation_context_preservation(
+        self, context_with_customer_info
+    ):
         """Test that existing context is preserved during booking using REAL function."""
         # Set some additional context
         context_with_customer_info.context.project_type = "Einfamilienhaus"
@@ -228,12 +237,15 @@ class TestBookConsultation:
             time="14:00",
             customer_name="Hans Müller",
             customer_email="hans.mueller@example.com",
-            customer_phone="+41 79 123 45 67"
+            customer_phone="+41 79 123 45 67",
         )
 
         # Check that existing context is preserved
         assert context_with_customer_info.context.customer_name == "Hans Müller"
-        assert context_with_customer_info.context.customer_email == "hans.mueller@example.com"
+        assert (
+            context_with_customer_info.context.customer_email
+            == "hans.mueller@example.com"
+        )
         assert context_with_customer_info.context.project_type == "Einfamilienhaus"
         assert context_with_customer_info.context.area_sqm == 150.0
         assert context_with_customer_info.context.inquiry_id == "INQ-12345"
@@ -254,7 +266,7 @@ class TestBookConsultation:
             time="14:00",
             customer_name="First Customer",
             customer_email="first@example.com",
-            customer_phone="+41 79 111 11 11"
+            customer_phone="+41 79 111 11 11",
         )
 
         assert mock_context_wrapper.context.consultation_booked is True
@@ -269,7 +281,7 @@ class TestBookConsultation:
             time="10:00",
             customer_name="Second Customer",
             customer_email="second@example.com",
-            customer_phone="+41 79 222 22 22"
+            customer_phone="+41 79 222 22 22",
         )
 
         assert mock_context_wrapper.context.consultation_booked is True
@@ -288,7 +300,7 @@ class TestBookConsultation:
             time="",
             customer_name="",
             customer_email="",
-            customer_phone=""
+            customer_phone="",
         )
 
         assert "✅ Consultation Booked!" in result
@@ -311,7 +323,7 @@ class TestBookConsultation:
             time="14:00 Uhr",
             customer_name="Müller & Söhne",
             customer_email="mueller@example.com",
-            customer_phone="+41 79 333 33 33"
+            customer_phone="+41 79 333 33 33",
         )
 
         assert "Specialist: Architekt & Planner" in result
@@ -330,10 +342,10 @@ class TestBookConsultation:
             time="14:00",
             customer_name="Format Test",
             customer_email="format@example.com",
-            customer_phone="+41 79 444 44 44"
+            customer_phone="+41 79 444 44 44",
         )
 
-        lines = result.split('\n')
+        lines = result.split("\n")
 
         # Should have confirmation header
         assert any("✅ Consultation Booked!" in line for line in lines)
@@ -355,7 +367,9 @@ class TestBookConsultation:
 
     @pytest.mark.asyncio
     @pytest.mark.tools
-    async def test_book_consultation_office_location_consistent(self, mock_context_wrapper):
+    async def test_book_consultation_office_location_consistent(
+        self, mock_context_wrapper
+    ):
         """Test that office location is consistent across all bookings using REAL function."""
         specialist_types = ["Architekt", "Holzbau-Ingenieur", "Bauleiter"]
         expected_location = "ERNI Gruppe, Guggibadstrasse 8, 6288 Schongau"
@@ -368,7 +382,7 @@ class TestBookConsultation:
                 time="14:00",
                 customer_name="Location Test",
                 customer_email="location@example.com",
-                customer_phone="+41 79 555 55 55"
+                customer_phone="+41 79 555 55 55",
             )
 
             assert f"Location: {expected_location}" in result

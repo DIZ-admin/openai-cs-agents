@@ -4,50 +4,80 @@ Unit tests for jailbreak guardrail functionality.
 
 import pytest
 from typing import Union, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from agents import Agent, RunContextWrapper, GuardrailFunctionOutput
 
-from main import jailbreak_guardrail, JailbreakOutput
+from main import JailbreakOutput
+
 
 # Test version of jailbreak_guardrail function without decorator
 async def jailbreak_guardrail_test(
-    context: RunContextWrapper,
-    agent: Agent,
-    input_text: Union[str, List]
+    context: RunContextWrapper, agent: Agent, input_text: Union[str, List]
 ) -> GuardrailFunctionOutput:
     """Test version of jailbreak guardrail function."""
     # Convert input to string if it's a list
     if isinstance(input_text, list):
         # Extract text from message list
-        text_content = " ".join([
-            msg.get("content", "") for msg in input_text
-            if isinstance(msg, dict) and "content" in msg
-        ])
+        text_content = " ".join(
+            [
+                msg.get("content", "")
+                for msg in input_text
+                if isinstance(msg, dict) and "content" in msg
+            ]
+        )
     else:
         text_content = str(input_text).lower()
 
     # Simple jailbreak detection for testing
     jailbreak_patterns = [
-        "ignore", "forget", "system", "prompt", "instruction", "override",
-        "bypass", "hack", "jailbreak", "pretend", "roleplay", "act as",
-        "you are now", "new instructions", "disregard", "reveal", "training",
-        "drop table", "select *", "rm -rf", "script", "exec", "eval",
-        "import os", "alert", "xss", "sql", "delete from", "update set",
-        "hypothetical", "scenario", "bound by", "restrictions", "safety measures"
+        "ignore",
+        "forget",
+        "system",
+        "prompt",
+        "instruction",
+        "override",
+        "bypass",
+        "hack",
+        "jailbreak",
+        "pretend",
+        "roleplay",
+        "act as",
+        "you are now",
+        "new instructions",
+        "disregard",
+        "reveal",
+        "training",
+        "drop table",
+        "select *",
+        "rm -rf",
+        "script",
+        "exec",
+        "eval",
+        "import os",
+        "alert",
+        "xss",
+        "sql",
+        "delete from",
+        "update set",
+        "hypothetical",
+        "scenario",
+        "bound by",
+        "restrictions",
+        "safety measures",
     ]
 
     # Check if input contains jailbreak patterns
     is_jailbreak = any(pattern in text_content for pattern in jailbreak_patterns)
 
     # Create mock output info
-    output_info = type('OutputInfo', (), {
-        'is_jailbreak': is_jailbreak,
-        'reasoning': "Test jailbreak check"
-    })()
+    output_info = type(
+        "OutputInfo",
+        (),
+        {"is_jailbreak": is_jailbreak, "reasoning": "Test jailbreak check"},
+    )()
 
     return GuardrailFunctionOutput(
-        output_info=output_info,
-        tripwire_triggered=is_jailbreak
+        output_info=output_info, tripwire_triggered=is_jailbreak
     )
 
 
@@ -87,14 +117,15 @@ class TestJailbreakGuardrail:
             # Mock safe input check
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
-                reasoning="Input is safe and conversational",
-                is_safe=True
+                reasoning="Input is safe and conversational", is_safe=True
             )
             mock_runner.return_value = mock_result
 
             for input_text in safe_inputs:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is False
                 assert result.output_info.is_jailbreak is False
@@ -121,13 +152,15 @@ class TestJailbreakGuardrail:
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
                 reasoning="Detected attempt to bypass system instructions",
-                is_safe=False
+                is_safe=False,
             )
             mock_runner.return_value = mock_result
 
             for input_text in malicious_inputs:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is True
                 assert result.output_info.is_jailbreak is True
@@ -154,13 +187,15 @@ class TestJailbreakGuardrail:
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
                 reasoning="Detected potentially malicious code or SQL injection",
-                is_safe=False
+                is_safe=False,
             )
             mock_runner.return_value = mock_result
 
             for input_text in code_injection_inputs:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is True
                 assert result.output_info.is_jailbreak is True
@@ -186,14 +221,15 @@ class TestJailbreakGuardrail:
             # Mock safe conversational input
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
-                reasoning="Normal conversational input",
-                is_safe=True
+                reasoning="Normal conversational input", is_safe=True
             )
             mock_runner.return_value = mock_result
 
             for input_text in conversational_inputs:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is False
                 assert result.output_info.is_jailbreak is False
@@ -214,14 +250,15 @@ class TestJailbreakGuardrail:
             # Mock safe edge cases
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
-                reasoning="Edge case input appears safe",
-                is_safe=True
+                reasoning="Edge case input appears safe", is_safe=True
             )
             mock_runner.return_value = mock_result
 
             for input_text in edge_cases:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is False
 
@@ -241,19 +278,20 @@ class TestJailbreakGuardrail:
         message_list = [
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi! How can I help you?"},
-            {"role": "user", "content": "I want to build a house"}
+            {"role": "user", "content": "I want to build a house"},
         ]
 
         with patch("main.Runner.run") as mock_runner:
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
-                reasoning="Safe conversation history",
-                is_safe=True
+                reasoning="Safe conversation history", is_safe=True
             )
             mock_runner.return_value = mock_result
 
-            result = await jailbreak_guardrail_test(mock_context, mock_agent, message_list)
-            
+            result = await jailbreak_guardrail_test(
+                mock_context, mock_agent, message_list
+            )
+
             assert isinstance(result, GuardrailFunctionOutput)
             assert result.tripwire_triggered is False
 
@@ -275,14 +313,15 @@ class TestJailbreakGuardrail:
             # Mock sophisticated attack detection
             mock_result = MagicMock()
             mock_result.final_output_as.return_value = JailbreakOutput(
-                reasoning="Detected sophisticated jailbreak attempt",
-                is_safe=False
+                reasoning="Detected sophisticated jailbreak attempt", is_safe=False
             )
             mock_runner.return_value = mock_result
 
             for input_text in sophisticated_attacks:
-                result = await jailbreak_guardrail_test(mock_context, mock_agent, input_text)
-                
+                result = await jailbreak_guardrail_test(
+                    mock_context, mock_agent, input_text
+                )
+
                 assert isinstance(result, GuardrailFunctionOutput)
                 assert result.tripwire_triggered is True
                 assert result.output_info.is_jailbreak is True

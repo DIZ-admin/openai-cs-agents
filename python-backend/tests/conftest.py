@@ -2,9 +2,8 @@
 Pytest configuration and shared fixtures for ERNI Gruppe Building Agents tests.
 """
 
-import asyncio
 import os
-from typing import AsyncGenerator, Dict, Any
+from typing import Dict, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -15,7 +14,6 @@ from fastapi.testclient import TestClient
 # Import the main application components
 from main import (
     BuildingProjectContext,
-    create_initial_context,
     triage_agent,
     project_information_agent,
     cost_estimation_agent,
@@ -30,6 +28,7 @@ from api import app
 # Environment Setup
 # ============================================================================
 
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
     """Set up test environment variables."""
@@ -41,6 +40,7 @@ def setup_test_environment():
 # ============================================================================
 # Context Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def empty_context() -> BuildingProjectContext:
@@ -80,6 +80,7 @@ def context_wrapper(sample_context) -> RunContextWrapper[BuildingProjectContext]
 # Agent Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_agents():
     """Mock all agents for testing."""
@@ -97,6 +98,7 @@ def mock_agents():
 # API Client Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def test_client() -> TestClient:
     """Create a test client for FastAPI application."""
@@ -107,6 +109,7 @@ def test_client() -> TestClient:
 async def async_test_client():
     """Create an async test client for FastAPI application."""
     from httpx import AsyncClient
+
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
 
@@ -115,6 +118,7 @@ async def async_test_client():
 # Mock Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_openai_runner():
     """Mock the OpenAI Runner for testing."""
@@ -122,13 +126,11 @@ def mock_openai_runner():
         # Mock successful run result
         mock_result = MagicMock()
         mock_result.final_output_as.return_value = MagicMock(
-            reasoning="Test reasoning",
-            is_relevant=True,
-            is_safe=True
+            reasoning="Test reasoning", is_relevant=True, is_safe=True
         )
         mock_result.new_items = []
         mock_result.to_input_list.return_value = []
-        
+
         mock_runner.run = AsyncMock(return_value=mock_result)
         yield mock_runner
 
@@ -137,13 +139,13 @@ def mock_openai_runner():
 def mock_conversation_store():
     """Mock conversation store for testing."""
     store = {}
-    
+
     def get_conversation(conversation_id: str):
         return store.get(conversation_id)
-    
+
     def save_conversation(conversation_id: str, state: Dict[str, Any]):
         store[conversation_id] = state
-    
+
     with patch("api.conversation_store") as mock_store:
         mock_store.get = MagicMock(side_effect=get_conversation)
         mock_store.save = MagicMock(side_effect=save_conversation)
@@ -154,12 +156,13 @@ def mock_conversation_store():
 # Test Data Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_chat_request():
     """Sample chat request data."""
     return {
         "conversation_id": str(uuid4()),
-        "message": "Hello, I want to build a house"
+        "message": "Hello, I want to build a house",
     }
 
 
@@ -170,7 +173,7 @@ def sample_project_data():
         "project_type": "Einfamilienhaus",
         "area_sqm": 150.0,
         "construction_type": "Holzbau",
-        "location": "Muri"
+        "location": "Muri",
     }
 
 
@@ -181,13 +184,14 @@ def sample_specialist_data():
         "specialist_type": "Architekt",
         "preferred_date": "next Tuesday",
         "date": "Tuesday, May 15",
-        "time": "14:00"
+        "time": "14:00",
     }
 
 
 # ============================================================================
 # Utility Functions
 # ============================================================================
+
 
 def create_mock_agent(name: str, description: str = "") -> Agent:
     """Create a mock agent for testing."""
@@ -202,7 +206,4 @@ def create_mock_agent(name: str, description: str = "") -> Agent:
 
 def create_test_message(content: str, role: str = "user") -> Dict[str, Any]:
     """Create a test message dictionary."""
-    return {
-        "content": content,
-        "role": role
-    }
+    return {"content": content, "role": role}

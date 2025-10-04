@@ -165,7 +165,9 @@ class InMemoryConversationStore(ConversationStore):
         if len(self._conversations) >= self._max_conversations:
             # Remove oldest 10% of conversations
             num_to_remove = max(1, self._max_conversations // 10)
-            oldest = sorted(self._timestamps.items(), key=lambda x: x[1])[:num_to_remove]
+            oldest = sorted(self._timestamps.items(), key=lambda x: x[1])[
+                :num_to_remove
+            ]
             for conv_id, _ in oldest:
                 self._conversations.pop(conv_id, None)
                 self._timestamps.pop(conv_id, None)
@@ -239,9 +241,17 @@ def _build_agents_list() -> List[Dict[str, Any]]:
         return {
             "name": agent.name,
             "description": getattr(agent, "handoff_description", ""),
-            "handoffs": [getattr(h, "agent_name", getattr(h, "name", "")) for h in getattr(agent, "handoffs", [])],
-            "tools": [getattr(t, "name", getattr(t, "__name__", "")) for t in getattr(agent, "tools", [])],
-            "input_guardrails": [_get_guardrail_name(g) for g in getattr(agent, "input_guardrails", [])],
+            "handoffs": [
+                getattr(h, "agent_name", getattr(h, "name", ""))
+                for h in getattr(agent, "handoffs", [])
+            ],
+            "tools": [
+                getattr(t, "name", getattr(t, "__name__", ""))
+                for t in getattr(agent, "tools", [])
+            ],
+            "input_guardrails": [
+                _get_guardrail_name(g) for g in getattr(agent, "input_guardrails", [])
+            ],
         }
 
     return [
@@ -269,7 +279,10 @@ async def chat_endpoint(request: Request, req: ChatRequest):
     """
     try:
         # Initialize or retrieve conversation state
-        is_new = not req.conversation_id or conversation_store.get(req.conversation_id) is None
+        is_new = (
+            not req.conversation_id
+            or conversation_store.get(req.conversation_id) is None
+        )
         if is_new:
             conversation_id: str = uuid4().hex
             ctx = create_initial_context()
@@ -300,7 +313,9 @@ async def chat_endpoint(request: Request, req: ChatRequest):
         guardrail_checks: List[GuardrailCheck] = []
 
         try:
-            result = await Runner.run(current_agent, state["input_items"], context=state["context"])
+            result = await Runner.run(
+                current_agent, state["input_items"], context=state["context"]
+            )
         except InputGuardrailTripwireTriggered as e:
             failed = e.guardrail_result.guardrail
             gr_output = e.guardrail_result.output.output_info
@@ -337,7 +352,14 @@ async def chat_endpoint(request: Request, req: ChatRequest):
             if isinstance(item, MessageOutputItem):
                 text = ItemHelpers.text_message_output(item)
                 messages.append(MessageResponse(content=text, agent=item.agent.name))
-                events.append(AgentEvent(id=uuid4().hex, type="message", agent=item.agent.name, content=text))
+                events.append(
+                    AgentEvent(
+                        id=uuid4().hex,
+                        type="message",
+                        agent=item.agent.name,
+                        content=text,
+                    )
+                )
             # Handle handoff output and agent switching
             elif isinstance(item, HandoffOutputItem):
                 # Record the handoff event
@@ -347,7 +369,10 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                         type="handoff",
                         agent=item.source_agent.name,
                         content=f"{item.source_agent.name} -> {item.target_agent.name}",
-                        metadata={"source_agent": item.source_agent.name, "target_agent": item.target_agent.name},
+                        metadata={
+                            "source_agent": item.source_agent.name,
+                            "target_agent": item.target_agent.name,
+                        },
                     )
                 )
                 # If there is an on_handoff callback defined for this handoff, show it as a tool call
@@ -358,7 +383,8 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                     (
                         h
                         for h in getattr(from_agent, "handoffs", [])
-                        if isinstance(h, Handoff) and getattr(h, "agent_name", None) == to_agent.name
+                        if isinstance(h, Handoff)
+                        and getattr(h, "agent_name", None) == to_agent.name
                     ),
                     None,
                 )
@@ -420,7 +446,11 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                 )
 
         new_context = state["context"].model_dump()
-        changes = {k: new_context[k] for k in new_context if old_context.get(k) != new_context[k]}
+        changes = {
+            k: new_context[k]
+            for k in new_context
+            if old_context.get(k) != new_context[k]
+        }
         if changes:
             events.append(
                 AgentEvent(
@@ -519,9 +549,14 @@ async def readiness_check(response: Response):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 # Simple check to OpenAI API
-                headers = {"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Bearer {openai_key}",
+                    "Content-Type": "application/json",
+                }
                 # Use models endpoint as a lightweight check
-                api_response = await client.get("https://api.openai.com/v1/models", headers=headers)
+                api_response = await client.get(
+                    "https://api.openai.com/v1/models", headers=headers
+                )
                 if api_response.status_code == 200:
                     checks["openai_api"] = True
         except Exception as e:
@@ -529,7 +564,9 @@ async def readiness_check(response: Response):
             checks["openai_api"] = False
     else:
         # No API key configured - skip network check
-        logger.warning("OPENAI_API_KEY not configured - skipping API connectivity check")
+        logger.warning(
+            "OPENAI_API_KEY not configured - skipping API connectivity check"
+        )
         checks["openai_api"] = False
 
     # Determine overall readiness

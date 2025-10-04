@@ -70,7 +70,7 @@ class TestSimpleFAQ:
 
         for question in wood_questions:
             result = await faq_lookup_test(question)
-            
+
             assert isinstance(result, str)
             assert "🌲 Why Wood?" in result
             assert "Wood is the ideal building material" in result
@@ -131,7 +131,7 @@ class TestSimpleFAQ:
 
         for question in unknown_questions:
             result = await faq_lookup_test(question)
-            
+
             assert isinstance(result, str)
             assert "❓ I don't have specific information" in result
             assert "041 570 70 70" in result
@@ -186,8 +186,7 @@ class TestSimpleFAQ:
             ("Warum Holz wählen?", "🌲 Why Wood?"),
             ("Wie lange dauert der Bau?", "⏱️ Construction Timeline:"),
             ("Haben Sie Zertifikate?", "🏆 ERNI Certifications:"),
-            
-            # English keywords  
+            # English keywords
             ("Why choose timber?", "🌲 Why Wood?"),
             ("What's the construction time?", "⏱️ Construction Timeline:"),
             ("Do you have certificates?", "🏆 ERNI Certifications:"),

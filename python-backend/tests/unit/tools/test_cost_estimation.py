@@ -30,7 +30,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=150.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         # Check result format (REAL function output)
@@ -40,7 +40,9 @@ class TestEstimateProjectCost:
         assert "Price per m²: CHF 3000" in result  # No comma in real function
         assert "CHF 450,000 - 562,500" in result
         assert "preliminary estimate" in result
-        assert "consultation with our architect" in result  # Real function says "architect" not "specialists"
+        assert (
+            "consultation with our architect" in result
+        )  # Real function says "architect" not "specialists"
 
         # Check context updates
         assert mock_context_wrapper.context.project_type == "Einfamilienhaus"
@@ -56,7 +58,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=200.0,
-            construction_type="Systembau"
+            construction_type="Systembau",
         )
 
         assert "Construction type: Systembau" in result
@@ -77,7 +79,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Mehrfamilienhaus",
             area_sqm=300.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         assert "Mehrfamilienhaus (300.0 m²)" in result
@@ -99,7 +101,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Agrar",
             area_sqm=500.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         assert "Agrar (500.0 m²)" in result
@@ -121,7 +123,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Renovation",
             area_sqm=100.0,
-            construction_type="Systembau"
+            construction_type="Systembau",
         )
 
         assert "Renovation (100.0 m²)" in result
@@ -143,7 +145,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="UnknownType",
             area_sqm=150.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         # Should return error message (REAL function format)
@@ -158,7 +160,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=150.0,
-            construction_type="UnknownType"
+            construction_type="UnknownType",
         )
 
         # Should return error message (REAL function format)
@@ -173,7 +175,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=50.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         assert "Einfamilienhaus (50.0 m²)" in result
@@ -191,7 +193,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Mehrfamilienhaus",
             area_sqm=1000.0,
-            construction_type="Systembau"
+            construction_type="Systembau",
         )
 
         assert "Mehrfamilienhaus (1000.0 m²)" in result
@@ -209,7 +211,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=175.5,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         assert "Einfamilienhaus (175.5 m²)" in result
@@ -236,12 +238,19 @@ class TestEstimateProjectCost:
             ("Renovation", "Systembau", 100.0, 1200, 120000, 150000),
         ]
 
-        for project_type, construction_type, area, expected_price, expected_min, expected_max in test_cases:
+        for (
+            project_type,
+            construction_type,
+            area,
+            expected_price,
+            expected_min,
+            expected_max,
+        ) in test_cases:
             result = await estimate_project_cost_impl(
                 context=mock_context_wrapper,
                 project_type=project_type,
                 area_sqm=area,
-                construction_type=construction_type
+                construction_type=construction_type,
             )
 
             # REAL function doesn't use comma in price_per_sqm
@@ -262,7 +271,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=150.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         # Check that existing context is preserved
@@ -284,7 +293,7 @@ class TestEstimateProjectCost:
             context=mock_context_wrapper,
             project_type="Einfamilienhaus",
             area_sqm=0.0,
-            construction_type="Holzbau"
+            construction_type="Holzbau",
         )
 
         # Should return error message for zero area (REAL function format)

@@ -6,7 +6,11 @@ import pytest
 from unittest.mock import MagicMock, patch
 from agents import Agent, RunContextWrapper
 
-from main import project_status_agent, project_status_instructions, BuildingProjectContext
+from main import (
+    project_status_agent,
+    project_status_instructions,
+    BuildingProjectContext,
+)
 
 
 class TestProjectStatusAgent:
@@ -26,8 +30,12 @@ class TestProjectStatusAgent:
         """Test that project status agent is properly configured."""
         assert project_status_agent.name == "Project Status Agent"
         assert "status updates" in project_status_agent.handoff_description.lower()
-        assert len(project_status_agent.tools) == 1  # Should have get_project_status tool
-        assert len(project_status_agent.input_guardrails) == 2  # relevance and jailbreak
+        assert (
+            len(project_status_agent.tools) == 1
+        )  # Should have get_project_status tool
+        assert (
+            len(project_status_agent.input_guardrails) == 2
+        )  # relevance and jailbreak
         assert project_status_agent.model == "gpt-4o-mini"
         assert project_status_agent.model_settings is not None
         assert project_status_agent.model_settings.temperature == 0.7
@@ -38,9 +46,9 @@ class TestProjectStatusAgent:
         """Test that project status agent has correct tools."""
         tool_names = []
         for tool in project_status_agent.tools:
-            if hasattr(tool, 'name'):
+            if hasattr(tool, "name"):
                 tool_names.append(tool.name)
-            elif hasattr(tool, '__name__'):
+            elif hasattr(tool, "__name__"):
                 tool_names.append(tool.__name__)
 
         assert any("get_project_status" in name for name in tool_names)
@@ -51,9 +59,9 @@ class TestProjectStatusAgent:
         """Test that project status agent has correct handoff targets."""
         handoff_names = []
         for handoff in project_status_agent.handoffs:
-            if hasattr(handoff, 'agent_name'):
+            if hasattr(handoff, "agent_name"):
                 handoff_names.append(handoff.agent_name)
-            elif hasattr(handoff, 'name'):
+            elif hasattr(handoff, "name"):
                 handoff_names.append(handoff.name)
 
         expected_targets = ["Triage Agent", "Project Information Agent"]
@@ -62,10 +70,14 @@ class TestProjectStatusAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_instructions_with_project_number(self, mock_context_wrapper):
+    async def test_project_status_instructions_with_project_number(
+        self, mock_context_wrapper
+    ):
         """Test project status instructions include project number."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         assert isinstance(instructions, str)
         assert "2024-156" in instructions
         assert "Project Status Agent" in instructions
@@ -80,7 +92,7 @@ class TestProjectStatusAgent:
         wrapper.context = context
 
         instructions = project_status_instructions(wrapper, project_status_agent)
-        
+
         assert isinstance(instructions, str)
         assert "[unknown]" in instructions
         assert "Project Status Agent" in instructions
@@ -89,14 +101,16 @@ class TestProjectStatusAgent:
     @pytest.mark.agents
     async def test_project_status_instructions_procedure(self, mock_context_wrapper):
         """Test that project status instructions include proper procedure."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         procedure_steps = [
             "project number",
             "YYYY-XXX",
             "get_project_status",
             "current stage",
-            "milestones"
+            "milestones",
         ]
 
         for step in procedure_steps:
@@ -104,29 +118,34 @@ class TestProjectStatusAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_instructions_project_number_format(self, mock_context_wrapper):
+    async def test_project_status_instructions_project_number_format(
+        self, mock_context_wrapper
+    ):
         """Test that instructions specify project number format."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
-        format_examples = [
-            "YYYY-XXX",
-            "2024-156"
-        ]
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
+        format_examples = ["YYYY-XXX", "2024-156"]
 
         for example in format_examples:
             assert example in instructions
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_instructions_handoff_guidance(self, mock_context_wrapper):
+    async def test_project_status_instructions_handoff_guidance(
+        self, mock_context_wrapper
+    ):
         """Test that instructions include handoff guidance."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         handoff_guidance = [
             "Project Information Agent",
             "Triage Agent",
             "questions",  # More flexible than "process questions"
-            "transfer"  # More general match for handoff guidance
+            "transfer",  # More general match for handoff guidance
         ]
 
         for guidance in handoff_guidance:
@@ -136,8 +155,10 @@ class TestProjectStatusAgent:
     @pytest.mark.agents
     async def test_project_status_instructions_tool_usage(self, mock_context_wrapper):
         """Test that instructions mention tool usage."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         assert "get_project_status tool" in instructions
 
     @pytest.mark.asyncio
@@ -145,12 +166,12 @@ class TestProjectStatusAgent:
     async def test_project_status_agent_guardrails(self):
         """Test that project status agent has proper guardrails."""
         assert len(project_status_agent.input_guardrails) == 2
-        
+
         guardrail_names = []
         for guardrail in project_status_agent.input_guardrails:
-            if hasattr(guardrail, 'name'):
+            if hasattr(guardrail, "name"):
                 guardrail_names.append(guardrail.name)
-            elif hasattr(guardrail, '__name__'):
+            elif hasattr(guardrail, "__name__"):
                 guardrail_names.append(guardrail.__name__)
 
         assert any("relevance" in name.lower() for name in guardrail_names)
@@ -158,8 +179,10 @@ class TestProjectStatusAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    @patch('main.Runner.run')
-    async def test_project_status_agent_execution(self, mock_runner, mock_context_wrapper):
+    @patch("main.Runner.run")
+    async def test_project_status_agent_execution(
+        self, mock_runner, mock_context_wrapper
+    ):
         """Test project status agent execution with mocked Runner."""
         # Mock successful run
         mock_result = MagicMock()
@@ -169,8 +192,10 @@ class TestProjectStatusAgent:
 
         # Test input
         input_text = "What's the status of project 2024-156?"
-        
-        result = await mock_runner(project_status_agent, input_text, context=mock_context_wrapper.context)
+
+        result = await mock_runner(
+            project_status_agent, input_text, context=mock_context_wrapper.context
+        )
         assert result is not None
         mock_runner.assert_called()
 
@@ -184,8 +209,10 @@ class TestProjectStatusAgent:
     @pytest.mark.agents
     async def test_project_status_instructions_step_by_step(self, mock_context_wrapper):
         """Test that instructions provide clear step-by-step process."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         # Should have numbered steps
         assert "1." in instructions
         assert "2." in instructions
@@ -194,15 +221,15 @@ class TestProjectStatusAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_instructions_follow_up_support(self, mock_context_wrapper):
+    async def test_project_status_instructions_follow_up_support(
+        self, mock_context_wrapper
+    ):
         """Test that instructions include follow-up question support."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
-        follow_up_elements = [
-            "follow-up questions",
-            "answer",
-            "explain"
-        ]
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
+        follow_up_elements = ["follow-up questions", "answer", "explain"]
 
         for element in follow_up_elements:
             assert element.lower() in instructions.lower()
@@ -221,11 +248,11 @@ class TestProjectStatusAgent:
         for context in test_contexts:
             wrapper = MagicMock(spec=RunContextWrapper)
             wrapper.context = context
-            
+
             instructions = project_status_instructions(wrapper, project_status_agent)
             assert isinstance(instructions, str)
             assert len(instructions) > 0
-            
+
             if context.project_number:
                 assert context.project_number in instructions
             else:
@@ -235,13 +262,15 @@ class TestProjectStatusAgent:
     @pytest.mark.agents
     async def test_project_status_agent_professional_tone(self, mock_context_wrapper):
         """Test that project status instructions maintain professional tone."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         professional_elements = [
             "follow this procedure",
             "project number",  # More specific match from actual instructions
             "explain",
-            "clearly"
+            "clearly",
         ]
 
         for element in professional_elements:
@@ -249,40 +278,43 @@ class TestProjectStatusAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_agent_current_project_display(self, mock_context_wrapper):
+    async def test_project_status_agent_current_project_display(
+        self, mock_context_wrapper
+    ):
         """Test that current project number is displayed in instructions."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         assert "Current project number: 2024-156" in instructions
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_agent_milestone_explanation(self, mock_context_wrapper):
+    async def test_project_status_agent_milestone_explanation(
+        self, mock_context_wrapper
+    ):
         """Test that instructions emphasize milestone explanation."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
-        milestone_elements = [
-            "milestone",
-            "next",
-            "stage",
-            "clearly"
-        ]
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
+        milestone_elements = ["milestone", "next", "stage", "clearly"]
 
         for element in milestone_elements:
             assert element.lower() in instructions.lower()
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_status_agent_error_handling_guidance(self, mock_context_wrapper):
+    async def test_project_status_agent_error_handling_guidance(
+        self, mock_context_wrapper
+    ):
         """Test that instructions provide guidance for error scenarios."""
-        instructions = project_status_instructions(mock_context_wrapper, project_status_agent)
-        
+        instructions = project_status_instructions(
+            mock_context_wrapper, project_status_agent
+        )
+
         # Should handle cases where project is not found
-        error_handling = [
-            "project number",
-            "format",
-            "YYYY-XXX"
-        ]
+        error_handling = ["project number", "format", "YYYY-XXX"]
 
         for element in error_handling:
             assert element in instructions

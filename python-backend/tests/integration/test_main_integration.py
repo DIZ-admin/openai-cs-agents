@@ -6,8 +6,7 @@ with the OpenAI Agents SDK decorators intact (@function_tool, @input_guardrail).
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from agents import Runner, RunContextWrapper, GuardrailFunctionOutput
+from unittest.mock import MagicMock
 from main import (
     # Agents
     triage_agent,
@@ -52,10 +51,10 @@ class TestAgentIntegration:
         for h in triage_agent.handoffs:
             assert h is not None
             # Handoff objects have agent_name attribute
-            if hasattr(h, 'agent_name'):
+            if hasattr(h, "agent_name"):
                 handoff_agent_names.append(h.agent_name)
             # Some might be Agent objects with name attribute
-            elif hasattr(h, 'name'):
+            elif hasattr(h, "name"):
                 handoff_agent_names.append(h.name)
 
         # Check all expected agents are present
@@ -118,8 +117,12 @@ class TestAgentIntegration:
 
             # Check that relevance and jailbreak guardrails are present
             guardrail_names = [g.name for g in agent.input_guardrails]
-            assert "Relevance Guardrail" in guardrail_names, f"{agent.name} missing Relevance Guardrail"
-            assert "Jailbreak Guardrail" in guardrail_names, f"{agent.name} missing Jailbreak Guardrail"
+            assert "Relevance Guardrail" in guardrail_names, (
+                f"{agent.name} missing Relevance Guardrail"
+            )
+            assert "Jailbreak Guardrail" in guardrail_names, (
+                f"{agent.name} missing Jailbreak Guardrail"
+            )
 
 
 @pytest.mark.integration
@@ -152,7 +155,7 @@ class TestToolIntegration:
     def test_faq_lookup_building_is_function_tool(self):
         """Test that faq_lookup_building is a FunctionTool."""
         from agents import FunctionTool
-        
+
         # The decorated function should be a FunctionTool
         assert isinstance(faq_lookup_building, FunctionTool)
         assert faq_lookup_building.name == "faq_lookup_building"
@@ -160,28 +163,28 @@ class TestToolIntegration:
     def test_estimate_project_cost_is_function_tool(self):
         """Test that estimate_project_cost is a FunctionTool."""
         from agents import FunctionTool
-        
+
         assert isinstance(estimate_project_cost, FunctionTool)
         assert estimate_project_cost.name == "estimate_project_cost"
 
     def test_check_specialist_availability_is_function_tool(self):
         """Test that check_specialist_availability is a FunctionTool."""
         from agents import FunctionTool
-        
+
         assert isinstance(check_specialist_availability, FunctionTool)
         assert check_specialist_availability.name == "check_specialist_availability"
 
     def test_book_consultation_is_function_tool(self):
         """Test that book_consultation is a FunctionTool."""
         from agents import FunctionTool
-        
+
         assert isinstance(book_consultation, FunctionTool)
         assert book_consultation.name == "book_consultation"
 
     def test_get_project_status_is_function_tool(self):
         """Test that get_project_status is a FunctionTool."""
         from agents import FunctionTool
-        
+
         assert isinstance(get_project_status, FunctionTool)
         assert get_project_status.name == "get_project_status"
 
@@ -281,7 +284,9 @@ class TestAgentInstructions:
         run_context.context = context
 
         # Call the instructions function
-        instructions = cost_estimation_agent.instructions(run_context, cost_estimation_agent)
+        instructions = cost_estimation_agent.instructions(
+            run_context, cost_estimation_agent
+        )
 
         assert isinstance(instructions, str)
         assert "test-inquiry-123" in instructions
@@ -298,8 +303,9 @@ class TestAgentInstructions:
         run_context.context = context
 
         # Call the instructions function
-        instructions = appointment_booking_agent.instructions(run_context, appointment_booking_agent)
+        instructions = appointment_booking_agent.instructions(
+            run_context, appointment_booking_agent
+        )
 
         assert isinstance(instructions, str)
         assert "true" in instructions.lower() or "yes" in instructions.lower()
-

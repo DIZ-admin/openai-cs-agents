@@ -3,17 +3,12 @@ Unit tests for Triage Agent functionality.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from agents import Agent, RunContextWrapper
 
 from main import (
     triage_agent,
     BuildingProjectContext,
-    project_information_agent,
-    cost_estimation_agent,
-    project_status_agent,
-    appointment_booking_agent,
-    faq_agent,
 )
 
 
@@ -44,17 +39,17 @@ class TestTriageAgent:
         """Test that triage agent has correct handoff targets."""
         handoff_names = []
         for handoff in triage_agent.handoffs:
-            if hasattr(handoff, 'agent_name'):
+            if hasattr(handoff, "agent_name"):
                 handoff_names.append(handoff.agent_name)
-            elif hasattr(handoff, 'name'):
+            elif hasattr(handoff, "name"):
                 handoff_names.append(handoff.name)
 
         expected_targets = [
             "Project Information Agent",
-            "Cost Estimation Agent", 
+            "Cost Estimation Agent",
             "Project Status Agent",
             "Appointment Booking Agent",
-            "FAQ Agent"
+            "FAQ Agent",
         ]
 
         for target in expected_targets:
@@ -74,13 +69,13 @@ class TestTriageAgent:
         assert "triage agent" in instructions.lower()
         assert "erni gruppe" in instructions.lower()
         assert "timber construction" in instructions.lower()
-        
+
         # Check routing instructions
         assert "general information" in instructions.lower()
         assert "cost estimates" in instructions.lower()
         assert "project status" in instructions.lower()
         assert "consultation" in instructions.lower()
-        
+
         # Check language support
         assert "german" in instructions.lower() or "english" in instructions.lower()
 
@@ -89,13 +84,13 @@ class TestTriageAgent:
     async def test_triage_agent_guardrails(self):
         """Test that triage agent has proper guardrails."""
         assert len(triage_agent.input_guardrails) == 2
-        
+
         # Check guardrail names
         guardrail_names = []
         for guardrail in triage_agent.input_guardrails:
-            if hasattr(guardrail, 'name'):
+            if hasattr(guardrail, "name"):
                 guardrail_names.append(guardrail.name)
-            elif hasattr(guardrail, '__name__'):
+            elif hasattr(guardrail, "__name__"):
                 guardrail_names.append(guardrail.__name__)
 
         assert any("relevance" in name.lower() for name in guardrail_names)
@@ -118,7 +113,7 @@ class TestTriageAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    @patch('main.Runner.run')
+    @patch("main.Runner.run")
     async def test_triage_agent_routing_logic(self, mock_runner, mock_context_wrapper):
         """Test triage agent routing logic with mocked Runner."""
         # Mock successful run
@@ -137,7 +132,9 @@ class TestTriageAgent:
         ]
 
         for input_text in test_inputs:
-            result = await mock_runner(triage_agent, input_text, context=mock_context_wrapper.context)
+            result = await mock_runner(
+                triage_agent, input_text, context=mock_context_wrapper.context
+            )
             assert result is not None
             mock_runner.assert_called()
 
@@ -192,9 +189,9 @@ class TestTriageAgent:
         routing_categories = [
             "general information",
             "cost estimate",
-            "project status", 
+            "project status",
             "consultation",
-            "specific questions"
+            "specific questions",
         ]
 
         for category in routing_categories:
@@ -205,12 +202,12 @@ class TestTriageAgent:
     async def test_triage_agent_handoff_callbacks(self):
         """Test that triage agent has proper handoff callbacks where needed."""
         handoff_with_callbacks = []
-        
+
         for handoff in triage_agent.handoffs:
-            if hasattr(handoff, 'on_invoke_handoff'):
+            if hasattr(handoff, "on_invoke_handoff"):
                 # Check if handoff has callback
                 fn = handoff.on_invoke_handoff
-                if fn and hasattr(fn, '__closure__') and fn.__closure__:
+                if fn and hasattr(fn, "__closure__") and fn.__closure__:
                     handoff_with_callbacks.append(handoff)
 
         # Cost estimation and appointment booking should have callbacks
@@ -222,7 +219,9 @@ class TestTriageAgent:
         """Test that triage agent is properly typed."""
         assert isinstance(triage_agent, Agent)
         # Should be typed for BuildingProjectContext
-        assert hasattr(triage_agent, '__orig_class__') or hasattr(triage_agent, '__args__')
+        assert hasattr(triage_agent, "__orig_class__") or hasattr(
+            triage_agent, "__args__"
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.agents
@@ -249,5 +248,6 @@ class TestTriageAgent:
 
         # Should include the recommended prompt prefix for handoffs
         from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+
         if RECOMMENDED_PROMPT_PREFIX:
             assert RECOMMENDED_PROMPT_PREFIX in instructions
