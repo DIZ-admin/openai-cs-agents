@@ -54,7 +54,84 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+# FastAPI app with comprehensive metadata
+app = FastAPI(
+    title="ERNI Gruppe Building Agents API",
+    description="""
+## ERNI Gruppe Building Agents - Multi-Agent Customer Service System
+
+A sophisticated multi-agent orchestration platform built on the OpenAI Agents SDK,
+providing intelligent customer service for building and construction projects.
+
+### Features
+
+* **6 Specialized Agents** - Each agent handles specific aspects of building projects
+* **Intelligent Routing** - Automatic handoff between agents based on customer needs
+* **Context Preservation** - Customer information persists across agent transitions
+* **Bilingual Support** - German and English language support
+* **Safety Guardrails** - Input validation and security checks
+* **PII Protection** - Output guardrails prevent exposure of sensitive information
+
+### Agents
+
+1. **Triage Agent** - Main entry point and routing agent
+2. **Project Information Agent** - General information about ERNI's services
+3. **Cost Estimation Agent** - Preliminary cost estimates for building projects
+4. **Project Status Agent** - Status updates for ongoing projects
+5. **Appointment Booking Agent** - Schedule consultations with specialists
+6. **FAQ Agent** - Answers frequently asked questions
+
+### Use Cases
+
+* Cost estimation for building projects
+* Project status inquiries
+* Consultation scheduling with specialists
+* General building information and FAQ
+* Material and process questions
+
+### Authentication
+
+Currently, the API does not require authentication. In production, implement
+proper authentication and authorization mechanisms.
+
+### Rate Limiting
+
+The API implements rate limiting to prevent abuse:
+* 60 requests per minute per IP
+* 1000 requests per hour per IP
+* 10000 requests per day per IP
+
+### Support
+
+For support, contact: info@erni-gruppe.ch
+Website: https://www.erni-gruppe.ch
+    """,
+    version="1.0.0",
+    terms_of_service="https://www.erni-gruppe.ch/terms",
+    contact={
+        "name": "ERNI Gruppe Support",
+        "url": "https://www.erni-gruppe.ch/contact",
+        "email": "info@erni-gruppe.ch",
+    },
+    license_info={
+        "name": "Proprietary",
+        "url": "https://www.erni-gruppe.ch/license",
+    },
+    openapi_tags=[
+        {
+            "name": "chat",
+            "description": "Chat endpoints for interacting with building agents",
+        },
+        {
+            "name": "health",
+            "description": "Health check and system status endpoints",
+        },
+        {
+            "name": "agents",
+            "description": "Agent information and configuration endpoints",
+        },
+    ],
+)
 
 # Rate limiting configuration
 limiter = Limiter(key_func=get_remote_address)
@@ -77,16 +154,66 @@ app.add_middleware(
 
 
 class ChatRequest(BaseModel):
+    """
+    Request model for chat endpoint.
+
+    Attributes:
+        conversation_id: Optional conversation ID to continue existing conversation.
+                        If not provided, a new conversation will be created.
+        message: User's message to send to the agent.
+
+    Example:
+        ```json
+        {
+            "conversation_id": "conv_123abc",
+            "message": "I want to build a house"
+        }
+        ```
+    """
     conversation_id: Optional[str] = None
     message: str
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "conversation_id": "conv_abc123def456",
+                "message": "How much would a 150m² house cost?"
+            }
+        }
+
 
 class MessageResponse(BaseModel):
+    """
+    Response message from an agent.
+
+    Attributes:
+        content: The message content from the agent.
+        agent: Name of the agent that generated this message.
+    """
     content: str
     agent: str
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "content": "A 150m² house typically costs between CHF 450,000 and CHF 562,500.",
+                "agent": "Cost Estimation Agent"
+            }
+        }
+
 
 class AgentEvent(BaseModel):
+    """
+    Event generated during agent execution.
+
+    Attributes:
+        id: Unique event identifier.
+        type: Event type (e.g., 'handoff', 'tool_call', 'message').
+        agent: Name of the agent that generated this event.
+        content: Event content or description.
+        metadata: Optional additional event metadata.
+        timestamp: Unix timestamp when event occurred.
+    """
     id: str
     type: str
     agent: str
@@ -96,6 +223,17 @@ class AgentEvent(BaseModel):
 
 
 class GuardrailCheck(BaseModel):
+    """
+    Guardrail check result.
+
+    Attributes:
+        id: Unique check identifier.
+        name: Name of the guardrail (e.g., 'Relevance Guardrail').
+        input: Input text that was checked.
+        reasoning: Guardrail's reasoning for the decision.
+        passed: Whether the guardrail check passed.
+        timestamp: Unix timestamp when check occurred.
+    """
     id: str
     name: str
     input: str
@@ -105,6 +243,41 @@ class GuardrailCheck(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """
+    Response from chat endpoint.
+
+    Attributes:
+        conversation_id: Unique conversation identifier.
+        current_agent: Name of the currently active agent.
+        messages: List of messages from agents.
+        events: List of events that occurred during execution.
+        context: Current conversation context (customer info, project details, etc.).
+        agents: List of available agents with their descriptions.
+        guardrails: List of guardrail checks that were performed.
+
+    Example:
+        ```json
+        {
+            "conversation_id": "conv_abc123",
+            "current_agent": "Cost Estimation Agent",
+            "messages": [
+                {
+                    "content": "A 150m² house costs CHF 450,000-562,500",
+                    "agent": "Cost Estimation Agent"
+                }
+            ],
+            "events": [],
+            "context": {
+                "project_type": "Einfamilienhaus",
+                "area_sqm": 150.0
+            },
+            "agents": [
+                {"name": "Triage Agent", "description": "Main routing agent"}
+            ],
+            "guardrails": []
+        }
+        ```
+    """
     conversation_id: str
     current_agent: str
     messages: List[MessageResponse]
@@ -112,6 +285,26 @@ class ChatResponse(BaseModel):
     context: Dict[str, Any]
     agents: List[Dict[str, Any]]
     guardrails: List[GuardrailCheck] = []
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "conversation_id": "conv_abc123def456",
+                "current_agent": "Triage Agent",
+                "messages": [
+                    {
+                        "content": "Welcome to ERNI Gruppe! How can I help you today?",
+                        "agent": "Triage Agent"
+                    }
+                ],
+                "events": [],
+                "context": {},
+                "agents": [
+                    {"name": "Triage Agent", "description": "Main routing agent"}
+                ],
+                "guardrails": []
+            }
+        }
 
 
 # =========================
@@ -340,15 +533,36 @@ def _build_agents_list() -> List[Dict[str, Any]]:
 # =========================
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    tags=["chat"],
+    summary="Send a message to the building agents",
+    description="""
+Send a message to ERNI Gruppe's multi-agent system for building and construction inquiries.
+
+The system automatically routes your message to the appropriate specialized agent and maintains
+conversation context across multiple messages.
+    """,
+    responses={
+        200: {
+            "description": "Successful response with agent messages",
+        },
+        400: {"description": "Invalid request format"},
+        429: {"description": "Rate limit exceeded (10 requests/minute)"},
+        500: {"description": "Internal server error"},
+        503: {"description": "AI service temporarily unavailable"},
+        504: {"description": "Request timeout (>30 seconds)"},
+    }
+)
 @limiter.limit("10/minute")
 async def chat_endpoint(request: Request, req: ChatRequest):
     """
     Main chat endpoint for agent orchestration.
-    Handles conversation state, agent routing, and guardrail checks.
-    Rate limited to 10 requests per minute per IP.
 
-    Now uses SQLiteSession for production-ready conversation management.
+    Handles conversation state, agent routing, and guardrail checks.
+    Uses SQLiteSession for production-ready conversation management.
+    Rate limited to 10 requests per minute per IP.
     """
     try:
         # Generate or use existing conversation ID
@@ -591,11 +805,34 @@ async def chat_endpoint(request: Request, req: ChatRequest):
 # =========================
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["health"],
+    summary="Health check endpoint",
+    description="Returns basic application health status for monitoring and load balancers.",
+    responses={
+        200: {
+            "description": "Service is healthy",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "healthy",
+                        "timestamp": "2025-01-15T10:30:00.000Z",
+                        "version": "1.0.0",
+                        "environment": "production",
+                        "service": "ERNI Building Agents API"
+                    }
+                }
+            }
+        }
+    }
+)
 async def health_check():
     """
     Health check endpoint for monitoring.
-    Returns basic application health status.
+
+    Returns basic application health status including version, environment, and timestamp.
+    This endpoint is lightweight and always returns 200 OK if the service is running.
     """
     return {
         "status": "healthy",
@@ -606,11 +843,56 @@ async def health_check():
     }
 
 
-@app.get("/readiness")
+@app.get(
+    "/readiness",
+    tags=["health"],
+    summary="Readiness check endpoint",
+    description="""
+Kubernetes/Docker readiness probe endpoint.
+
+Verifies that all critical dependencies are available and configured:
+- OpenAI API key is set
+- OpenAI API is reachable
+
+Returns 200 OK if ready, 503 Service Unavailable if not ready.
+    """,
+    responses={
+        200: {
+            "description": "Service is ready to accept requests",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "ready",
+                        "checks": {
+                            "openai_api": True,
+                            "environment_configured": True
+                        }
+                    }
+                }
+            }
+        },
+        503: {
+            "description": "Service is not ready",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "not_ready",
+                        "checks": {
+                            "openai_api": False,
+                            "environment_configured": True
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def readiness_check(response: Response):
     """
     Readiness check endpoint for Kubernetes/Docker health checks.
-    Verifies that all dependencies are available.
+
+    Verifies that all dependencies are available and properly configured.
+    Returns 503 if any critical dependency is unavailable.
     """
     checks = {
         "openai_api": False,
@@ -657,4 +939,62 @@ async def readiness_check(response: Response):
         "timestamp": datetime.utcnow().isoformat(),
         "checks": checks,
         "version": "1.0.0",
+    }
+
+
+# =========================
+# Agent Information Endpoints
+# =========================
+
+
+@app.get(
+    "/agents",
+    tags=["agents"],
+    summary="List all available agents",
+    description="""
+Get information about all available agents in the system.
+
+Returns a list of agents with their:
+- Name
+- Description (handoff description)
+- Available handoffs to other agents
+- Available tools
+- Configured guardrails
+
+This endpoint is useful for understanding the agent architecture and capabilities.
+    """,
+    responses={
+        200: {
+            "description": "List of all agents",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "agents": [
+                            {
+                                "name": "Triage Agent",
+                                "description": "Main routing agent",
+                                "handoffs": ["Project Information Agent", "Cost Estimation Agent"],
+                                "tools": [],
+                                "guardrails": ["Relevance Guardrail", "Jailbreak Guardrail"]
+                            }
+                        ],
+                        "total": 6
+                    }
+                }
+            }
+        }
+    }
+)
+async def list_agents():
+    """
+    List all available agents with their metadata.
+
+    Returns information about all 6 specialized agents including their
+    capabilities, handoffs, tools, and guardrails.
+    """
+    agents_list = _build_agents_list()
+    return {
+        "agents": agents_list,
+        "total": len(agents_list),
+        "timestamp": datetime.utcnow().isoformat(),
     }
