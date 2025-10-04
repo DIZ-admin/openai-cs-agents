@@ -555,29 +555,175 @@ sudo yum install amazon-cloudwatch-agent
 
 ### Health Checks
 
-**Backend Health Endpoint:**
+The ERNI Building Agents API provides two health check endpoints for monitoring and orchestration:
+
+#### 1. Health Endpoint (`/health`)
+
+**Purpose:** Basic liveness check for load balancers and monitoring systems.
+
+**Endpoint:** `GET /health`
+
+**Response (200 OK):**
+```json
+{
+    "status": "healthy",
+    "timestamp": "2025-10-04T09:42:20.160176",
+    "version": "1.0.0",
+    "environment": "development",
+    "service": "ERNI Building Agents API"
+}
+```
+
+**Usage:**
+```bash
+# Check if service is alive
+curl http://127.0.0.1:8000/health
+
+# In Docker Compose
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+```
+
+**Characteristics:**
+- ✅ No authentication required
+- ✅ Fast response (< 50ms)
+- ✅ Does not check dependencies
+- ✅ Always returns 200 OK if service is running
+
+---
+
+#### 2. Readiness Endpoint (`/readiness`)
+
+**Purpose:** Comprehensive dependency check for Kubernetes readiness probes.
+
+**Endpoint:** `GET /readiness`
+
+**Response (200 OK - All dependencies ready):**
+```json
+{
+    "status": "ready",
+    "timestamp": "2025-10-04T09:42:22.644740",
+    "checks": {
+        "openai_api": true,
+        "environment_configured": true
+    },
+    "version": "1.0.0"
+}
+```
+
+**Response (503 Service Unavailable - Dependencies not ready):**
+```json
+{
+    "status": "not_ready",
+    "timestamp": "2025-10-04T09:42:22.644740",
+    "checks": {
+        "openai_api": false,
+        "environment_configured": true
+    },
+    "version": "1.0.0"
+}
+```
+
+**Checks Performed:**
+1. **environment_configured** - Verifies OPENAI_API_KEY is set
+2. **openai_api** - Tests connectivity to OpenAI API (GET /v1/models)
+
+**Usage:**
+```bash
+# Check if service is ready to accept traffic
+curl http://127.0.0.1:8000/readiness
+
+# In Kubernetes
+readinessProbe:
+  httpGet:
+    path: /readiness
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 3
+```
+
+**Characteristics:**
+- ✅ No authentication required
+- ⚠️ Slower response (up to 5 seconds due to OpenAI API check)
+- ✅ Checks all critical dependencies
+- ✅ Returns 503 if any dependency is unavailable
+
+---
+
+#### Implementation
+
+**Backend Health Endpoints:**
 ```python
 # python-backend/api.py
+from fastapi import FastAPI, Response, status
+from datetime import datetime
+import os
+import httpx
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for load balancers."""
+    """
+    Health check endpoint for monitoring.
+    Returns basic application health status.
+    """
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "service": "ERNI Building Agents API"
     }
 
 @app.get("/readiness")
-async def readiness_check():
-    """Readiness check - verify dependencies."""
+async def readiness_check(response: Response):
+    """
+    Readiness check endpoint for Kubernetes/Docker health checks.
+    Verifies that all dependencies are available.
+    """
+    checks = {
+        "openai_api": False,
+        "environment_configured": False,
+    }
+
+    # Check if OPENAI_API_KEY is configured
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key and len(openai_key) > 0:
+        checks["environment_configured"] = True
+
+    # Check OpenAI API connectivity
     try:
-        # Check database connection
-        db.execute("SELECT 1")
-        # Check Redis connection
-        redis_client.ping()
-        return {"status": "ready"}
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            headers = {
+                "Authorization": f"Bearer {openai_key}",
+                "Content-Type": "application/json"
+            }
+            api_response = await client.get(
+                "https://api.openai.com/v1/models",
+                headers=headers
+            )
+            if api_response.status_code == 200:
+                checks["openai_api"] = True
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Not ready: {str(e)}")
+        logger.warning(f"OpenAI API check failed: {e}")
+        checks["openai_api"] = False
+
+    # Determine overall readiness
+    all_ready = all(checks.values())
+
+    if not all_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return {
+        "status": "ready" if all_ready else "not_ready",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": checks,
+        "version": "1.0.0"
+    }
 ```
 
 ---

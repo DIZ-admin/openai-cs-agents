@@ -1,13 +1,16 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from uuid import uuid4
 import time
 import logging
+import os
+from datetime import datetime
+import httpx
 
 from main import (
     triage_agent,
@@ -351,3 +354,71 @@ async def chat_endpoint(req: ChatRequest):
         agents=_build_agents_list(),
         guardrails=final_guardrails,
     )
+
+
+# =========================
+# Health Check Endpoints
+# =========================
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for monitoring.
+    Returns basic application health status.
+    """
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "service": "ERNI Building Agents API"
+    }
+
+
+@app.get("/readiness")
+async def readiness_check(response: Response):
+    """
+    Readiness check endpoint for Kubernetes/Docker health checks.
+    Verifies that all dependencies are available.
+    """
+    checks = {
+        "openai_api": False,
+        "environment_configured": False,
+    }
+
+    # Check if OPENAI_API_KEY is configured
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key and len(openai_key) > 0:
+        checks["environment_configured"] = True
+
+    # Check OpenAI API connectivity
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # Simple check to OpenAI API
+            headers = {
+                "Authorization": f"Bearer {openai_key}",
+                "Content-Type": "application/json"
+            }
+            # Use models endpoint as a lightweight check
+            api_response = await client.get(
+                "https://api.openai.com/v1/models",
+                headers=headers
+            )
+            if api_response.status_code == 200:
+                checks["openai_api"] = True
+    except Exception as e:
+        logger.warning(f"OpenAI API check failed: {e}")
+        checks["openai_api"] = False
+
+    # Determine overall readiness
+    all_ready = all(checks.values())
+
+    if not all_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return {
+        "status": "ready" if all_ready else "not_ready",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": checks,
+        "version": "1.0.0"
+    }
