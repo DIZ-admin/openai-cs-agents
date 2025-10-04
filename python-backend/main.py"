@@ -79,6 +79,16 @@ def create_initial_context() -> BuildingProjectContext:
 MAIN_AGENT_MODEL = os.getenv("OPENAI_MAIN_AGENT_MODEL", "gpt-4o-mini")
 GUARDRAIL_MODEL = os.getenv("OPENAI_GUARDRAIL_MODEL", "gpt-4o-mini")
 
+# Vector Store ID for FAQ Agent knowledge base (REQUIRED)
+VECTOR_STORE_ID = os.getenv("OPENAI_VECTOR_STORE_ID")
+if not VECTOR_STORE_ID:
+    raise ValueError(
+        "OPENAI_VECTOR_STORE_ID environment variable is required. "
+        "Please set it in your .env file. "
+        "You can find your vector store ID in the OpenAI dashboard at: "
+        "https://platform.openai.com/storage/vector_stores"
+    )
+
 # Settings for main agents (customer-facing, complex reasoning)
 MAIN_AGENT_SETTINGS = ModelSettings(
     temperature=float(
@@ -835,7 +845,7 @@ faq_agent = Agent[BuildingProjectContext](
     tools=[
         FileSearchTool(
             max_num_results=5,
-            vector_store_ids=["vs_68e14a087e3c8191b4b7483ba3cb8d2a"],
+            vector_store_ids=[VECTOR_STORE_ID],
         ),
         faq_lookup_building,  # Keep as fallback for backward compatibility
     ],
