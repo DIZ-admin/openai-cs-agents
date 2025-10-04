@@ -5,6 +5,7 @@ This directory contains the knowledge base for the FAQ Agent.
 ## Files
 
 - `erni_knowledge_base.json` - Comprehensive knowledge base about ERNI Gruppe
+- `erni_sitemap.json` - Complete website sitemap with all page URLs and descriptions
 
 ## Knowledge Base Structure
 
@@ -71,17 +72,61 @@ Organized by category:
 - Company vision
 - 8 core values
 
+## Sitemap Structure
+
+The sitemap (`erni_sitemap.json`) contains a comprehensive map of the ERNI Gruppe website with:
+
+### Page Information
+Each page entry includes:
+- **ID**: Unique identifier for the page
+- **Title (DE/EN)**: Page title in German and English
+- **URL**: Full URL to the page
+- **Description (DE/EN)**: Brief description in both languages
+- **Category**: Page category (main, company, services, information)
+- **Tags**: Keywords for easy searching
+
+### Categories
+- **main**: Main navigation pages (home, contact, jobs)
+- **company**: Company information pages (team, vision, news, etc.)
+- **services**: Service division pages (Planung, Holzbau, Spenglerei, Ausbau, Realisation, Agrar)
+- **information**: Informational pages (materials, certifications, etc.)
+
+### Usage by FAQ Agent
+The FAQ Agent uses the sitemap to:
+1. Find relevant website pages based on customer questions
+2. Provide direct links to specific pages in responses
+3. Help customers navigate to detailed information
+4. Support both German and English customers with bilingual links
+
+### Example Pages Included
+- All 6 service divisions with their subpages
+- Team and contact pages
+- Certification and partnership pages
+- Project references
+- Company information and values
+- News and current projects
+
 ## Updating the Knowledge Base
 
-### Step 1: Edit the JSON File
+### Step 1: Edit the JSON Files
 
-Edit `erni_knowledge_base.json` with new or updated information.
+Edit the appropriate JSON file(s) with new or updated information:
+
+**For company information, FAQs, team, etc.:**
+- Edit `erni_knowledge_base.json`
+
+**For website structure, new pages, or URL changes:**
+- Edit `erni_sitemap.json`
+- Add new pages with all required fields (id, title_de, title_en, url, description_de, description_en, category, tags)
+- Update existing page URLs if they change
+- Add relevant tags to help FAQ Agent find pages
 
 **Important:**
 - Maintain the existing JSON structure
-- Validate JSON syntax before uploading
+- Validate JSON syntax before uploading: `python -m json.tool <filename>.json`
 - Use UTF-8 encoding
 - Keep information accurate and up-to-date
+- For sitemap: Ensure all URLs are correct and accessible
 
 ### Step 2: Upload to Vector Store
 
@@ -122,9 +167,20 @@ After deployment, verify that the FAQ Agent uses the updated knowledge base.
 ## Vector Store Details
 
 - **Vector Store ID:** vs_68e14a087e3c8191b4b7483ba3cb8d2a
-- **Current File ID:** file-PXmza43TEH6UyX4pkkFdhD
-- **File Size:** 18,288 bytes
-- **Last Updated:** 2025-10-04
+
+### Files in Vector Store
+
+1. **erni_knowledge_base.json**
+   - File ID: file-PXmza43TEH6UyX4pkkFdhD
+   - File Size: 18,288 bytes
+   - Last Updated: 2025-10-04
+   - Content: Company information, FAQs, team, services, certifications
+
+2. **erni_sitemap.json**
+   - File ID: (Added by user)
+   - Content: Complete website sitemap with all page URLs and descriptions
+   - Last Updated: 2025-10-04
+   - Purpose: Enable FAQ Agent to provide direct links to relevant website pages
 
 ## Best Practices
 
