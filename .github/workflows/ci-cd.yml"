@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, feature/erni-building-agents, develop]
+    branches: [main, production, feature/erni-building-agents, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, production, develop]
   workflow_dispatch:
 
 env:
