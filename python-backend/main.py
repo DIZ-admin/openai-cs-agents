@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import json
+from enum import Enum
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -38,6 +39,28 @@ if KNOWLEDGE_BASE_PATH.exists():
         KNOWLEDGE_BASE = json.load(f)
 else:
     print(f"⚠️  Warning: Knowledge base file not found at {KNOWLEDGE_BASE_PATH}")
+
+
+# =========================
+# ENUMS
+# =========================
+
+
+class ProjectType(str, Enum):
+    """Types of building projects supported by ERNI Gruppe."""
+
+    EINFAMILIENHAUS = "Einfamilienhaus"
+    MEHRFAMILIENHAUS = "Mehrfamilienhaus"
+    AGRAR = "Agrar"
+    RENOVATION = "Renovation"
+
+
+class ConstructionType(str, Enum):
+    """Construction methods offered by ERNI Gruppe."""
+
+    HOLZBAU = "Holzbau"
+    SYSTEMBAU = "Systembau"
+
 
 # =========================
 # CONTEXT
@@ -241,16 +264,29 @@ async def estimate_project_cost_impl(
         )
 
     # Base prices per m² in CHF (demo values)
+    # Using enum values as keys for type safety
     base_prices = {
-        "Einfamilienhaus": {"Holzbau": 3000, "Systembau": 2500},
-        "Mehrfamilienhaus": {"Holzbau": 2800, "Systembau": 2300},
-        "Agrar": {"Holzbau": 2000, "Systembau": 1800},
-        "Renovation": {"Holzbau": 1500, "Systembau": 1200},
+        ProjectType.EINFAMILIENHAUS.value: {
+            ConstructionType.HOLZBAU.value: 3000,
+            ConstructionType.SYSTEMBAU.value: 2500,
+        },
+        ProjectType.MEHRFAMILIENHAUS.value: {
+            ConstructionType.HOLZBAU.value: 2800,
+            ConstructionType.SYSTEMBAU.value: 2300,
+        },
+        ProjectType.AGRAR.value: {
+            ConstructionType.HOLZBAU.value: 2000,
+            ConstructionType.SYSTEMBAU.value: 1800,
+        },
+        ProjectType.RENOVATION.value: {
+            ConstructionType.HOLZBAU.value: 1500,
+            ConstructionType.SYSTEMBAU.value: 1200,
+        },
     }
 
     # Validate project type
     if project_type not in base_prices:
-        valid_types = ", ".join(base_prices.keys())
+        valid_types = ", ".join([pt.value for pt in ProjectType])
         return (
             f"❌ Unknown project type: '{project_type}'\n\n"
             f"Valid project types are:\n"
@@ -260,10 +296,10 @@ async def estimate_project_cost_impl(
 
     # Validate construction type
     if construction_type not in base_prices[project_type]:
-        valid_construction = ", ".join(base_prices[project_type].keys())
+        valid_construction = ", ".join([ct.value for ct in ConstructionType])
         return (
             f"❌ Unknown construction type: '{construction_type}' for {project_type}\n\n"
-            f"Valid construction types for {project_type} are:\n"
+            f"Valid construction types are:\n"
             f"- {valid_construction}\n\n"
             f"Please specify a valid construction type."
         )
@@ -444,7 +480,7 @@ async def get_project_status(
         # Mock project data (in production, this would query CRM/ERP)
         mock_projects = {
             "2024-156": {
-                "type": "Einfamilienhaus",
+                "type": ProjectType.EINFAMILIENHAUS.value,
                 "location": "Muri",
                 "stage": "Production",
                 "progress": 75,
@@ -452,7 +488,7 @@ async def get_project_status(
                 "responsible": "Tobias Wili",
             },
             "2024-089": {
-                "type": "Mehrfamilienhaus",
+                "type": ProjectType.MEHRFAMILIENHAUS.value,
                 "location": "Schongau",
                 "stage": "Planning",
                 "progress": 40,
@@ -460,7 +496,7 @@ async def get_project_status(
                 "responsible": "André Arnold",
             },
             "2023-234": {
-                "type": "Agrar",
+                "type": ProjectType.AGRAR.value,
                 "location": "Hochdorf",
                 "stage": "Completed",
                 "progress": 100,
