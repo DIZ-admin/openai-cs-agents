@@ -1,12 +1,15 @@
 from __future__ import annotations as _annotations
 
+import hashlib
 import logging
 import os
 import random
 import json
+import time
 from enum import Enum
 from pathlib import Path
 
+from cachetools import TTLCache
 from dotenv import load_dotenv
 
 # Configure logging
@@ -116,6 +119,40 @@ if not VECTOR_STORE_ID:
         "You can find your vector store ID in the OpenAI dashboard at: "
         "https://platform.openai.com/storage/vector_stores"
     )
+
+
+# =========================
+# GUARDRAIL CACHING
+# =========================
+
+# TTL Cache for guardrail results (1 hour TTL, max 1000 entries)
+# This significantly improves performance by caching guardrail decisions
+GUARDRAIL_CACHE_TTL = int(os.getenv("GUARDRAIL_CACHE_TTL", "3600"))  # 1 hour default
+GUARDRAIL_CACHE_SIZE = int(os.getenv("GUARDRAIL_CACHE_SIZE", "1000"))
+
+guardrail_cache = TTLCache(maxsize=GUARDRAIL_CACHE_SIZE, ttl=GUARDRAIL_CACHE_TTL)
+
+
+def _hash_input(input_text: str | list[TResponseInputItem]) -> str:
+    """
+    Create a hash of the input for cache key.
+
+    Args:
+        input_text: Input string or list of response items
+
+    Returns:
+        SHA256 hash of the input
+    """
+    if isinstance(input_text, str):
+        text = input_text
+    else:
+        # For list of items, concatenate text content
+        text = " ".join(
+            item.get("text", "") if isinstance(item, dict) else str(item)
+            for item in input_text
+        )
+
+    return hashlib.sha256(text.encode()).hexdigest()
 
 # Settings for main agents (customer-facing, complex reasoning)
 MAIN_AGENT_SETTINGS = ModelSettings(
@@ -592,12 +629,32 @@ async def relevance_guardrail(
     agent: Agent,
     input: str | list[TResponseInputItem],
 ) -> GuardrailFunctionOutput:
-    """Guardrail to check if input is relevant to building/construction topics."""
+    """
+    Guardrail to check if input is relevant to building/construction topics.
+
+    Uses TTL cache to avoid redundant API calls for identical inputs.
+    """
+    # Create cache key
+    cache_key = f"relevance:{_hash_input(input)}"
+
+    # Check cache
+    if cache_key in guardrail_cache:
+        logger.debug(f"Relevance guardrail cache hit for key: {cache_key[:16]}...")
+        return guardrail_cache[cache_key]
+
+    # Cache miss - run guardrail
+    logger.debug(f"Relevance guardrail cache miss for key: {cache_key[:16]}...")
     result = await Runner.run(guardrail_agent, input, context=context.context)
     final = result.final_output_as(RelevanceOutput)
-    return GuardrailFunctionOutput(
+
+    output = GuardrailFunctionOutput(
         output_info=final, tripwire_triggered=not final.is_relevant
     )
+
+    # Store in cache
+    guardrail_cache[cache_key] = output
+
+    return output
 
 
 class JailbreakOutput(BaseModel):
@@ -633,12 +690,32 @@ async def jailbreak_guardrail(
     agent: Agent,
     input: str | list[TResponseInputItem],
 ) -> GuardrailFunctionOutput:
-    """Guardrail to detect jailbreak attempts."""
+    """
+    Guardrail to detect jailbreak attempts.
+
+    Uses TTL cache to avoid redundant API calls for identical inputs.
+    """
+    # Create cache key
+    cache_key = f"jailbreak:{_hash_input(input)}"
+
+    # Check cache
+    if cache_key in guardrail_cache:
+        logger.debug(f"Jailbreak guardrail cache hit for key: {cache_key[:16]}...")
+        return guardrail_cache[cache_key]
+
+    # Cache miss - run guardrail
+    logger.debug(f"Jailbreak guardrail cache miss for key: {cache_key[:16]}...")
     result = await Runner.run(jailbreak_guardrail_agent, input, context=context.context)
     final = result.final_output_as(JailbreakOutput)
-    return GuardrailFunctionOutput(
+
+    output = GuardrailFunctionOutput(
         output_info=final, tripwire_triggered=not final.is_safe
     )
+
+    # Store in cache
+    guardrail_cache[cache_key] = output
+
+    return output
 
 
 class PIIOutput(BaseModel):
