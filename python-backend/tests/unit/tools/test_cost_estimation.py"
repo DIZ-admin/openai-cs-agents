@@ -165,7 +165,9 @@ class TestEstimateProjectCost:
 
         # Should return error message (REAL function format)
         assert "❌ Unknown construction type: 'UnknownType'" in result
-        assert "Valid construction types for Einfamilienhaus are:" in result
+        assert "Valid construction types are:" in result
+        assert "Holzbau" in result
+        assert "Systembau" in result
 
     @pytest.mark.asyncio
     @pytest.mark.tools
