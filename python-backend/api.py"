@@ -7,6 +7,16 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 from pathlib import Path
 
+# Import structured logging
+from logging_config import (
+    get_logger,
+    events,
+    bind_correlation_id,
+    bind_conversation_context,
+    bind_user_context,
+    clear_context,
+)
+
 import httpx
 from agents import (
     Agent,
@@ -22,7 +32,7 @@ from agents import (
     ToolCallOutputItem,
 )
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -37,6 +47,23 @@ from tenacity import (
 )
 from openai import OpenAIError, APITimeoutError, RateLimitError
 
+# Import session manager
+from session_manager import get_session_manager
+
+# Import metrics
+from metrics import (
+    create_instrumentator,
+    record_agent_execution,
+    record_agent_handoff,
+    record_tool_execution,
+    record_guardrail_check,
+    record_authentication_attempt,
+    update_active_sessions,
+    record_conversation_started,
+    record_message_processed,
+    set_app_info,
+)
+
 from main import (
     appointment_booking_agent,
     cost_estimation_agent,
@@ -47,12 +74,22 @@ from main import (
     triage_agent,
 )
 
+# Authentication
+from auth import (
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    get_current_active_user,
+    Token,
+    User,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Get structured logger
+logger = get_logger(__name__)
 
 # FastAPI app with comprehensive metadata
 app = FastAPI(
@@ -147,6 +184,83 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Prometheus metrics instrumentation
+instrumentator = create_instrumentator()
+instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=True)
+
+# Set application info for metrics
+set_app_info(
+    version=os.getenv("APP_VERSION", "0.1.0"),
+    environment=os.getenv("ENVIRONMENT", "development"),
+)
+
+
+# =========================
+# Middleware for Structured Logging
+# =========================
+
+
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    """
+    Middleware for structured logging with correlation IDs and request tracking.
+
+    Adds:
+    - Correlation ID for request tracing
+    - Request/response logging
+    - Performance metrics
+    - Context cleanup
+    """
+    # Generate correlation ID
+    correlation_id = request.headers.get("X-Correlation-ID", uuid4().hex)
+    bind_correlation_id(correlation_id)
+
+    # Log request start
+    start_time = time.time()
+    logger.info(
+        "request_started",
+        method=request.method,
+        path=request.url.path,
+        client_ip=request.client.host if request.client else None,
+    )
+
+    try:
+        # Process request
+        response = await call_next(request)
+
+        # Calculate duration
+        duration_ms = (time.time() - start_time) * 1000
+
+        # Log request completion
+        events.api_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+
+        # Add correlation ID to response headers
+        response.headers["X-Correlation-ID"] = correlation_id
+
+        return response
+
+    except Exception as exc:
+        # Log error
+        duration_ms = (time.time() - start_time) * 1000
+        logger.error(
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
+            duration_ms=duration_ms,
+            error=str(exc),
+            exc_info=True,
+        )
+        raise
+
+    finally:
+        # Clear context to prevent leakage
+        clear_context()
 
 # =========================
 # Models
@@ -308,19 +422,20 @@ class ChatResponse(BaseModel):
 
 
 # =========================
-# Session Management with SQLiteSession
+# Session Management with AgentSessionManager
 # =========================
 
-# Configure SQLite database path
-SESSIONS_DB_PATH = Path(os.getenv("SESSIONS_DB_PATH", "data/conversations.db"))
-SESSIONS_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Initialize global session manager
+session_manager = get_session_manager()
 
-logger.info(f"Using SQLite sessions database at: {SESSIONS_DB_PATH}")
+logger.info(f"Using SQLite sessions database at: {session_manager.db_path}")
 
 
 def get_session(conversation_id: str) -> SQLiteSession:
     """
     Get or create a SQLiteSession for the given conversation ID.
+
+    Uses the global AgentSessionManager for centralized session management.
 
     Args:
         conversation_id: Unique conversation identifier
@@ -328,10 +443,7 @@ def get_session(conversation_id: str) -> SQLiteSession:
     Returns:
         SQLiteSession instance for managing conversation history
     """
-    return SQLiteSession(
-        session_id=conversation_id,
-        db_path=str(SESSIONS_DB_PATH)
-    )
+    return session_manager.get_session(conversation_id)
 
 
 # =========================
@@ -529,6 +641,103 @@ def _build_agents_list() -> List[Dict[str, Any]]:
 
 
 # =========================
+# Authentication Endpoints
+# =========================
+
+
+@app.post(
+    "/auth/token",
+    response_model=Token,
+    tags=["authentication"],
+    summary="Obtain JWT access token",
+    description="""
+Authenticate with username and password to obtain a JWT access token.
+
+**Demo Credentials:**
+- Username: `demo` / Password: `secret` (User role)
+- Username: `admin` / Password: `secret` (Admin role)
+
+**Token Usage:**
+Include the token in subsequent requests using the `Authorization` header:
+```
+Authorization: Bearer <your_token_here>
+```
+
+**Token Expiration:**
+Tokens expire after {ACCESS_TOKEN_EXPIRE_MINUTES} minutes. Request a new token when expired.
+    """,
+)
+async def login(username: str, password: str) -> Token:
+    """
+    Authenticate user and return JWT access token.
+
+    Args:
+        username: User's username
+        password: User's password
+
+    Returns:
+        Token object with access_token and expiration info
+
+    Raises:
+        HTTPException: If credentials are invalid
+    """
+    user = authenticate_user(username, password)
+
+    if not user:
+        # Log and record failed authentication
+        events.authentication_attempt(
+            username=username,
+            success=False,
+            method="password",
+        )
+        record_authentication_attempt(method="password", success=False)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Log and record successful authentication
+    events.authentication_attempt(
+        username=username,
+        success=True,
+        method="password",
+    )
+    record_authentication_attempt(method="password", success=True)
+
+    # Create access token with user data
+    access_token = create_access_token(
+        data={"sub": user.username, "roles": user.roles}
+    )
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
+    )
+
+
+@app.get(
+    "/auth/me",
+    response_model=User,
+    tags=["authentication"],
+    summary="Get current user information",
+    description="Retrieve information about the currently authenticated user.",
+)
+async def read_users_me(current_user: User = Depends(get_current_active_user)) -> User:
+    """
+    Get current authenticated user's information.
+
+    Args:
+        current_user: Current user from JWT token (injected by dependency)
+
+    Returns:
+        User object with user information
+    """
+    return current_user
+
+
+# =========================
 # Main Chat Endpoint
 # =========================
 
@@ -556,14 +765,27 @@ conversation context across multiple messages.
     }
 )
 @limiter.limit("10/minute")
-async def chat_endpoint(request: Request, req: ChatRequest):
+async def chat_endpoint(
+    request: Request,
+    req: ChatRequest,
+    current_user: Optional[User] = Depends(get_current_user) if os.getenv("REQUIRE_AUTH", "false").lower() == "true" else None
+):
     """
     Main chat endpoint for agent orchestration.
 
     Handles conversation state, agent routing, and guardrail checks.
     Uses SQLiteSession for production-ready conversation management.
     Rate limited to 10 requests per minute per IP.
+
+    **Authentication:**
+    - Optional by default (set REQUIRE_AUTH=true to enforce)
+    - If authenticated, user info is logged for audit purposes
     """
+    # Log authenticated user if present
+    if current_user:
+        bind_user_context(username=current_user.username)
+        logger.info("authenticated_chat_request", username=current_user.username)
+
     try:
         # Generate or use existing conversation ID
         # If conversation_id is provided and not empty, use it; otherwise generate new
@@ -572,8 +794,18 @@ async def chat_endpoint(request: Request, req: ChatRequest):
         else:
             conversation_id = uuid4().hex
 
+        # Bind conversation context for logging
+        bind_conversation_context(conversation_id)
+
+        # Record conversation started (for new conversations)
+        if not req.conversation_id or not req.conversation_id.strip():
+            record_conversation_started()
+
         # Get SQLiteSession for this conversation
         session = get_session(conversation_id)
+
+        # Update active sessions metric
+        update_active_sessions(session_manager.get_active_session_count())
 
         # Initialize context (will be updated by agents)
         ctx = create_initial_context()
@@ -599,6 +831,13 @@ async def chat_endpoint(request: Request, req: ChatRequest):
         guardrail_checks: List[GuardrailCheck] = []
 
         try:
+            # Log agent execution start
+            agent_start_time = time.time()
+            events.agent_started(
+                agent_name=current_agent.name,
+                conversation_id=conversation_id,
+            )
+
             # Run agent with timeout and retry logic
             result = await run_agent_with_retry(
                 agent=current_agent,
@@ -606,6 +845,21 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                 context=ctx,
                 session=session
             )
+
+            # Log and record agent execution completion
+            agent_duration_ms = (time.time() - agent_start_time) * 1000
+            agent_duration_seconds = agent_duration_ms / 1000
+            events.agent_completed(
+                agent_name=current_agent.name,
+                conversation_id=conversation_id,
+                duration_ms=agent_duration_ms,
+            )
+            record_agent_execution(
+                agent_name=current_agent.name,
+                duration_seconds=agent_duration_seconds,
+                status="success",
+            )
+            record_message_processed(agent_name=current_agent.name)
         except InputGuardrailTripwireTriggered as e:
             failed = e.guardrail_result.guardrail
             gr_output = e.guardrail_result.output.output_info
@@ -613,16 +867,20 @@ async def chat_endpoint(request: Request, req: ChatRequest):
             gr_input = req.message
             gr_timestamp = time.time() * 1000
             for g in current_agent.input_guardrails:
+                guardrail_name = _get_guardrail_name(g)
+                passed = (g != failed)
                 guardrail_checks.append(
                     GuardrailCheck(
                         id=uuid4().hex,
-                        name=_get_guardrail_name(g),
+                        name=guardrail_name,
                         input=gr_input,
                         reasoning=(gr_reasoning if g == failed else ""),
-                        passed=(g != failed),
+                        passed=passed,
                         timestamp=gr_timestamp,
                     )
                 )
+                # Record guardrail check metric
+                record_guardrail_check(guardrail_name, passed)
             refusal = "Sorry, I can only answer questions related to building and construction."
             # Note: With SQLiteSession, the refusal is not added to history automatically
             # The session will be empty for this failed request
@@ -653,6 +911,17 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                 )
             # Handle handoff output and agent switching
             elif isinstance(item, HandoffOutputItem):
+                # Log and record structured handoff event
+                events.agent_handoff(
+                    from_agent=item.source_agent.name,
+                    to_agent=item.target_agent.name,
+                    conversation_id=conversation_id,
+                )
+                record_agent_handoff(
+                    from_agent=item.source_agent.name,
+                    to_agent=item.target_agent.name,
+                )
+
                 # Record the handoff event
                 events.append(
                     AgentEvent(

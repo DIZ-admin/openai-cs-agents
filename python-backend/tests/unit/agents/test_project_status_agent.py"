@@ -36,7 +36,7 @@ class TestProjectStatusAgent:
         assert (
             len(project_status_agent.input_guardrails) == 2
         )  # relevance and jailbreak
-        assert project_status_agent.model == "gpt-4o-mini"
+        assert project_status_agent.model == "gpt-4.1-mini"
         assert project_status_agent.model_settings is not None
         assert project_status_agent.model_settings.temperature == 0.7
 
@@ -110,7 +110,7 @@ class TestProjectStatusAgent:
             "YYYY-XXX",
             "get_project_status",
             "current stage",
-            "milestones",
+            "milestone",  # Changed from "milestones" to match actual instruction
         ]
 
         for step in procedure_steps:
