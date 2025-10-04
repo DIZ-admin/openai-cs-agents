@@ -13,6 +13,21 @@ It is composed of two parts:
 
 ![Demo Screenshot](screenshot.jpg)
 
+## 🏗️ ERNI Gruppe Adaptation
+
+This repository includes an **adapted version for ERNI Gruppe**, a leading Swiss timber construction company. The adaptation transforms the airline customer service system into a building project consultation and support system.
+
+**Branch:** `feature/erni-building-agents`
+
+### Key Changes:
+- **Context:** Airline → Building projects (project type, area, budget, consultations)
+- **Agents:** Flight/Seat booking → Cost estimation, Project status, Appointment booking
+- **Tools:** Building-specific functions (cost estimation, specialist availability, project status)
+- **Branding:** ERNI brown color scheme (#928472)
+- **Language:** Bilingual support (German/English)
+
+📖 **See [ERNI_ADAPTATION.md](ERNI_ADAPTATION.md) for detailed documentation.**
+
 ## How to use
 
 ### Setting your OpenAI API key

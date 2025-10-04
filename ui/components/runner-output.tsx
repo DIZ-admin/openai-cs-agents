@@ -128,7 +128,7 @@ function TimeBadge({ timestamp }: { timestamp: Date }) {
 export function RunnerOutput({ runnerEvents }: RunnerOutputProps) {
   return (
     <div className="flex-1 overflow-hidden">
-      <PanelSection title="Runner Output" icon={<MessageSquareMore className="h-4 w-4 text-blue-600" />}>
+      <PanelSection title="Runner Output" icon={<MessageSquareMore className="h-4 w-4 text-[#928472]" />}>
         <ScrollArea className="h-[calc(100%-2rem)] rounded-md border border-gray-200 bg-gray-100 shadow-sm">
         <div className="p-4 space-y-3">
           {runnerEvents.length === 0 ? (
