@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -8,12 +9,14 @@ from pathlib import Path
 
 import httpx
 from agents import (
+    Agent,
     Handoff,
     HandoffOutputItem,
     InputGuardrailTripwireTriggered,
     ItemHelpers,
     MessageOutputItem,
     Runner,
+    RunResult,
     SQLiteSession,
     ToolCallItem,
     ToolCallOutputItem,
@@ -25,6 +28,14 @@ from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    RetryError,
+)
+from openai import OpenAIError, APITimeoutError, RateLimitError
 
 from main import (
     appointment_booking_agent,
@@ -128,6 +139,130 @@ def get_session(conversation_id: str) -> SQLiteSession:
         session_id=conversation_id,
         db_path=str(SESSIONS_DB_PATH)
     )
+
+
+# =========================
+# Agent Execution with Retry Logic
+# =========================
+
+# Configure timeout and retry settings
+AGENT_TIMEOUT_SECONDS = int(os.getenv("AGENT_TIMEOUT_SECONDS", "30"))
+AGENT_MAX_RETRIES = int(os.getenv("AGENT_MAX_RETRIES", "3"))
+
+logger.info(
+    f"Agent execution configured: timeout={AGENT_TIMEOUT_SECONDS}s, "
+    f"max_retries={AGENT_MAX_RETRIES}"
+)
+
+
+@retry(
+    stop=stop_after_attempt(AGENT_MAX_RETRIES),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((OpenAIError, APITimeoutError, RateLimitError)),
+    reraise=True,
+)
+async def _run_agent_with_retry_impl(
+    agent: Agent,
+    input_data: Any,
+    context: Any,
+    session: SQLiteSession,
+) -> RunResult:
+    """
+    Internal implementation of agent execution with retry logic.
+
+    Retries on OpenAI API errors with exponential backoff.
+
+    Args:
+        agent: Agent to run
+        input_data: Input message or items
+        context: Agent context
+        session: SQLite session for conversation history
+
+    Returns:
+        RunResult from agent execution
+
+    Raises:
+        OpenAIError: If all retries are exhausted
+        asyncio.TimeoutError: If execution exceeds timeout
+    """
+    return await Runner.run(agent, input_data, context=context, session=session)
+
+
+async def run_agent_with_retry(
+    agent: Agent,
+    input_data: Any,
+    context: Any,
+    session: SQLiteSession,
+    timeout: Optional[int] = None,
+) -> RunResult:
+    """
+    Run an agent with timeout and retry logic.
+
+    Features:
+    - Automatic timeout (default: 30 seconds)
+    - Retry on transient OpenAI API errors (max 3 attempts)
+    - Exponential backoff between retries (2s, 4s, 8s)
+    - Detailed error logging
+
+    Args:
+        agent: Agent to run
+        input_data: Input message or items
+        context: Agent context
+        session: SQLite session for conversation history
+        timeout: Optional custom timeout in seconds (default: AGENT_TIMEOUT_SECONDS)
+
+    Returns:
+        RunResult from agent execution
+
+    Raises:
+        HTTPException: 504 on timeout, 503 on API errors, 500 on unexpected errors
+    """
+    timeout_seconds = timeout or AGENT_TIMEOUT_SECONDS
+
+    try:
+        # Execute with timeout
+        result = await asyncio.wait_for(
+            _run_agent_with_retry_impl(agent, input_data, context, session),
+            timeout=timeout_seconds,
+        )
+        return result
+
+    except asyncio.TimeoutError:
+        logger.error(
+            f"Agent execution timeout after {timeout_seconds}s for agent: {agent.name}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Request timeout after {timeout_seconds} seconds. Please try again.",
+        )
+
+    except RetryError as e:
+        # All retries exhausted
+        original_error = e.last_attempt.exception()
+        logger.error(
+            f"Agent execution failed after {AGENT_MAX_RETRIES} retries: {original_error}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service temporarily unavailable. Please try again later.",
+        )
+
+    except (OpenAIError, APITimeoutError, RateLimitError) as e:
+        # Single attempt failed (shouldn't happen due to retry decorator, but handle anyway)
+        logger.error(f"OpenAI API error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service temporarily unavailable. Please try again later.",
+        )
+
+    except Exception as e:
+        # Unexpected error
+        logger.error(f"Unexpected error in agent execution: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred. Please try again later.",
+        )
 
 # =========================
 # Helpers
@@ -250,10 +385,10 @@ async def chat_endpoint(request: Request, req: ChatRequest):
         guardrail_checks: List[GuardrailCheck] = []
 
         try:
-            # Run agent with session (automatically manages conversation history)
-            result = await Runner.run(
-                current_agent,
-                req.message,
+            # Run agent with timeout and retry logic
+            result = await run_agent_with_retry(
+                agent=current_agent,
+                input_data=req.message,
                 context=ctx,
                 session=session
             )
