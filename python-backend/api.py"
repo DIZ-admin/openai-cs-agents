@@ -1,36 +1,37 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
+import logging
+import os
+import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
+
+import httpx
+from agents import (
+    Handoff,
+    HandoffOutputItem,
+    InputGuardrailTripwireTriggered,
+    ItemHelpers,
+    MessageOutputItem,
+    Runner,
+    ToolCallItem,
+    ToolCallOutputItem,
+)
 from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-from uuid import uuid4
-import time
-import logging
-import os
-from datetime import datetime
-import httpx
 
 from main import (
-    triage_agent,
+    appointment_booking_agent,
+    cost_estimation_agent,
+    create_initial_context,
     faq_agent,
     project_information_agent,
-    cost_estimation_agent,
     project_status_agent,
-    appointment_booking_agent,
-    create_initial_context,
-)
-
-from agents import (
-    Runner,
-    ItemHelpers,
-    MessageOutputItem,
-    HandoffOutputItem,
-    ToolCallItem,
-    ToolCallOutputItem,
-    InputGuardrailTripwireTriggered,
-    Handoff,
+    triage_agent,
 )
 
 # Configure logging
@@ -52,13 +53,16 @@ app.add_middleware(
 # Models
 # =========================
 
+
 class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     message: str
 
+
 class MessageResponse(BaseModel):
     content: str
     agent: str
+
 
 class AgentEvent(BaseModel):
     id: str
@@ -68,6 +72,7 @@ class AgentEvent(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     timestamp: Optional[float] = None
 
+
 class GuardrailCheck(BaseModel):
     id: str
     name: str
@@ -75,6 +80,7 @@ class GuardrailCheck(BaseModel):
     reasoning: str
     passed: bool
     timestamp: float
+
 
 class ChatResponse(BaseModel):
     conversation_id: str
@@ -85,9 +91,11 @@ class ChatResponse(BaseModel):
     agents: List[Dict[str, Any]]
     guardrails: List[GuardrailCheck] = []
 
+
 # =========================
 # In-memory store for conversation state
 # =========================
+
 
 class ConversationStore:
     def get(self, conversation_id: str) -> Optional[Dict[str, Any]]:
@@ -95,6 +103,7 @@ class ConversationStore:
 
     def save(self, conversation_id: str, state: Dict[str, Any]):
         pass
+
 
 class InMemoryConversationStore(ConversationStore):
     _conversations: Dict[str, Dict[str, Any]] = {}
@@ -105,12 +114,14 @@ class InMemoryConversationStore(ConversationStore):
     def save(self, conversation_id: str, state: Dict[str, Any]):
         self._conversations[conversation_id] = state
 
+
 # TODO: when deploying this app in scale, switch to your own production-ready implementation
 conversation_store = InMemoryConversationStore()
 
 # =========================
 # Helpers
 # =========================
+
 
 def _get_agent_by_name(name: str):
     """Return the agent object by name."""
@@ -123,6 +134,7 @@ def _get_agent_by_name(name: str):
         appointment_booking_agent.name: appointment_booking_agent,
     }
     return agents.get(name, triage_agent)
+
 
 def _get_guardrail_name(g) -> str:
     """Extract a friendly guardrail name."""
@@ -137,8 +149,10 @@ def _get_guardrail_name(g) -> str:
         return fn_name.replace("_", " ").title()
     return str(g)
 
+
 def _build_agents_list() -> List[Dict[str, Any]]:
     """Build a list of all available agents and their metadata."""
+
     def make_agent_dict(agent):
         return {
             "name": agent.name,
@@ -147,6 +161,7 @@ def _build_agents_list() -> List[Dict[str, Any]]:
             "tools": [getattr(t, "name", getattr(t, "__name__", "")) for t in getattr(agent, "tools", [])],
             "input_guardrails": [_get_guardrail_name(g) for g in getattr(agent, "input_guardrails", [])],
         }
+
     return [
         make_agent_dict(triage_agent),
         make_agent_dict(faq_agent),
@@ -156,9 +171,11 @@ def _build_agents_list() -> List[Dict[str, Any]]:
         make_agent_dict(appointment_booking_agent),
     ]
 
+
 # =========================
 # Main Chat Endpoint
 # =========================
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -206,14 +223,16 @@ async def chat_endpoint(req: ChatRequest):
         gr_input = req.message
         gr_timestamp = time.time() * 1000
         for g in current_agent.input_guardrails:
-            guardrail_checks.append(GuardrailCheck(
-                id=uuid4().hex,
-                name=_get_guardrail_name(g),
-                input=gr_input,
-                reasoning=(gr_reasoning if g == failed else ""),
-                passed=(g != failed),
-                timestamp=gr_timestamp,
-            ))
+            guardrail_checks.append(
+                GuardrailCheck(
+                    id=uuid4().hex,
+                    name=_get_guardrail_name(g),
+                    input=gr_input,
+                    reasoning=(gr_reasoning if g == failed else ""),
+                    passed=(g != failed),
+                    timestamp=gr_timestamp,
+                )
+            )
         refusal = "Sorry, I can only answer questions related to building and construction."
         state["input_items"].append({"role": "assistant", "content": refusal})
         return ChatResponse(
@@ -251,8 +270,11 @@ async def chat_endpoint(req: ChatRequest):
             to_agent = item.target_agent
             # Find the Handoff object on the source agent matching the target
             ho = next(
-                (h for h in getattr(from_agent, "handoffs", [])
-                 if isinstance(h, Handoff) and getattr(h, "agent_name", None) == to_agent.name),
+                (
+                    h
+                    for h in getattr(from_agent, "handoffs", [])
+                    if isinstance(h, Handoff) and getattr(h, "agent_name", None) == to_agent.name
+                ),
                 None,
             )
             if ho:
@@ -280,6 +302,7 @@ async def chat_endpoint(req: ChatRequest):
             if isinstance(raw_args, str):
                 try:
                     import json
+
                     tool_args = json.loads(raw_args)
                 except Exception:
                     pass
@@ -336,14 +359,16 @@ async def chat_endpoint(req: ChatRequest):
         if failed:
             final_guardrails.append(failed)
         else:
-            final_guardrails.append(GuardrailCheck(
-                id=uuid4().hex,
-                name=name,
-                input=req.message,
-                reasoning="",
-                passed=True,
-                timestamp=time.time() * 1000,
-            ))
+            final_guardrails.append(
+                GuardrailCheck(
+                    id=uuid4().hex,
+                    name=name,
+                    input=req.message,
+                    reasoning="",
+                    passed=True,
+                    timestamp=time.time() * 1000,
+                )
+            )
 
     return ChatResponse(
         conversation_id=conversation_id,
@@ -360,6 +385,7 @@ async def chat_endpoint(req: ChatRequest):
 # Health Check Endpoints
 # =========================
 
+
 @app.get("/health")
 async def health_check():
     """
@@ -371,7 +397,7 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "service": "ERNI Building Agents API"
+        "service": "ERNI Building Agents API",
     }
 
 
@@ -395,15 +421,9 @@ async def readiness_check(response: Response):
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             # Simple check to OpenAI API
-            headers = {
-                "Authorization": f"Bearer {openai_key}",
-                "Content-Type": "application/json"
-            }
+            headers = {"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"}
             # Use models endpoint as a lightweight check
-            api_response = await client.get(
-                "https://api.openai.com/v1/models",
-                headers=headers
-            )
+            api_response = await client.get("https://api.openai.com/v1/models", headers=headers)
             if api_response.status_code == 200:
                 checks["openai_api"] = True
     except Exception as e:
@@ -420,5 +440,5 @@ async def readiness_check(response: Response):
         "status": "ready" if all_ready else "not_ready",
         "timestamp": datetime.utcnow().isoformat(),
         "checks": checks,
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
