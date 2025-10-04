@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, Field, validator
+
 # ============================================================================
 # Environment Configuration
 # ============================================================================
@@ -47,7 +49,9 @@ class Config:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
     ALLOWED_HOSTS: list = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-    CORS_ALLOW_CREDENTIALS: bool = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+    CORS_ALLOW_CREDENTIALS: bool = (
+        os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+    )
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
@@ -58,8 +62,12 @@ class Config:
     # Session
     SESSION_TIMEOUT_MINUTES: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
     SESSION_COOKIE_NAME: str = os.getenv("SESSION_COOKIE_NAME", "erni_session")
-    SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
-    SESSION_COOKIE_HTTPONLY: bool = os.getenv("SESSION_COOKIE_HTTPONLY", "true").lower() == "true"
+    SESSION_COOKIE_SECURE: bool = (
+        os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    )
+    SESSION_COOKIE_HTTPONLY: bool = (
+        os.getenv("SESSION_COOKIE_HTTPONLY", "true").lower() == "true"
+    )
     SESSION_COOKIE_SAMESITE: str = os.getenv("SESSION_COOKIE_SAMESITE", "lax")
 
     # Performance
@@ -71,7 +79,9 @@ class Config:
     # Monitoring
     SENTRY_DSN: Optional[str] = os.getenv("SENTRY_DSN")
     SENTRY_ENVIRONMENT: str = os.getenv("SENTRY_ENVIRONMENT", ENVIRONMENT)
-    SENTRY_TRACES_SAMPLE_RATE: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+    SENTRY_TRACES_SAMPLE_RATE: float = float(
+        os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")
+    )
 
     @classmethod
     def validate(cls):
@@ -107,7 +117,9 @@ def setup_logging():
     log_level = getattr(logging, Config.LOG_LEVEL.upper())
 
     logging.basicConfig(
-        level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # Set specific log levels for libraries
@@ -116,7 +128,9 @@ def setup_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     logger = logging.getLogger(__name__)
-    logger.info(f"Logging configured: level={Config.LOG_LEVEL}, environment={Config.ENVIRONMENT}")
+    logger.info(
+        f"Logging configured: level={Config.LOG_LEVEL}, environment={Config.ENVIRONMENT}"
+    )
 
     return logger
 
@@ -134,7 +148,9 @@ SECURITY_HEADERS = {
 }
 
 if Config.ENVIRONMENT == "production":
-    SECURITY_HEADERS["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    SECURITY_HEADERS["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
 
 
 # ============================================================================
@@ -155,10 +171,6 @@ def get_health_status() -> dict:
 # ============================================================================
 # Input Validation
 # ============================================================================
-
-from typing import Optional
-
-from pydantic import BaseModel, Field, validator
 
 
 class CustomerContactValidation(BaseModel):
@@ -189,7 +201,9 @@ class CustomerContactValidation(BaseModel):
 class ProjectDataValidation(BaseModel):
     """Validation model for project data."""
 
-    project_type: str = Field(..., regex=r"^(Einfamilienhaus|Mehrfamilienhaus|Agrar|Renovation)$")
+    project_type: str = Field(
+        ..., regex=r"^(Einfamilienhaus|Mehrfamilienhaus|Agrar|Renovation)$"
+    )
     construction_type: str = Field(..., regex=r"^(Holzbau|Systembau)$")
     area_sqm: float = Field(..., gt=0, le=10000)
     location: Optional[str] = Field(None, max_length=200)
@@ -225,24 +239,45 @@ def get_rate_limit_key(identifier: str, window: str) -> str:
 # ============================================================================
 
 ERROR_RESPONSES = {
-    400: {"description": "Bad Request", "content": {"application/json": {"example": {"detail": "Invalid input data"}}}},
+    400: {
+        "description": "Bad Request",
+        "content": {"application/json": {"example": {"detail": "Invalid input data"}}},
+    },
     401: {
         "description": "Unauthorized",
-        "content": {"application/json": {"example": {"detail": "Authentication required"}}},
+        "content": {
+            "application/json": {"example": {"detail": "Authentication required"}}
+        },
     },
-    403: {"description": "Forbidden", "content": {"application/json": {"example": {"detail": "Access denied"}}}},
-    404: {"description": "Not Found", "content": {"application/json": {"example": {"detail": "Resource not found"}}}},
+    403: {
+        "description": "Forbidden",
+        "content": {"application/json": {"example": {"detail": "Access denied"}}},
+    },
+    404: {
+        "description": "Not Found",
+        "content": {"application/json": {"example": {"detail": "Resource not found"}}},
+    },
     429: {
         "description": "Too Many Requests",
-        "content": {"application/json": {"example": {"detail": "Rate limit exceeded. Please try again later."}}},
+        "content": {
+            "application/json": {
+                "example": {"detail": "Rate limit exceeded. Please try again later."}
+            }
+        },
     },
     500: {
         "description": "Internal Server Error",
-        "content": {"application/json": {"example": {"detail": "An internal error occurred"}}},
+        "content": {
+            "application/json": {"example": {"detail": "An internal error occurred"}}
+        },
     },
     503: {
         "description": "Service Unavailable",
-        "content": {"application/json": {"example": {"detail": "Service temporarily unavailable"}}},
+        "content": {
+            "application/json": {
+                "example": {"detail": "Service temporarily unavailable"}
+            }
+        },
     },
 }
 

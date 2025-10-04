@@ -169,7 +169,9 @@ class TestFAQLookupBuilding:
 
             assert isinstance(result, str)
             # REAL function format
-            assert "I'm sorry, I don't have an answer to that specific question" in result
+            assert (
+                "I'm sorry, I don't have an answer to that specific question" in result
+            )
             assert "speak with one of our consultants" in result
 
     @pytest.mark.asyncio
@@ -222,8 +224,14 @@ class TestFAQLookupBuilding:
             ("construction time estimate", "⏱️ Construction Timeline:"),
             ("warranty and guarantee info", "🛡️ ERNI Warranties:"),
             ("service offerings", "🔧 ERNI Services:"),  # REAL function uses 🔧
-            ("certificate standards", "🏆 ERNI Certifications:"),  # Must contain "certificate"
-            ("cost and pricing", "💰 Pricing:"),  # REAL function uses "Pricing:" not "Pricing Information:"
+            (
+                "certificate standards",
+                "🏆 ERNI Certifications:",
+            ),  # Must contain "certificate"
+            (
+                "cost and pricing",
+                "💰 Pricing:",
+            ),  # REAL function uses "Pricing:" not "Pricing Information:"
         ]
 
         for question, expected_start in partial_matches:

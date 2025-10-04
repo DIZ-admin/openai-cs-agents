@@ -3,19 +3,18 @@ Unit tests for specialist availability checking tool.
 """
 
 import pytest
-from main import check_specialist_availability
+
 
 # Test version of check_specialist_availability function without decorator
 async def check_specialist_availability_test(
-    specialist_type: str,
-    preferred_date: str
+    specialist_type: str, preferred_date: str
 ) -> str:
     """Test version of specialist availability function."""
     # Mock specialist data
     specialists = {
         "Architekt": ["André Arnold", "Stefan Gisler"],
         "Holzbau-Ingenieur": ["Andreas Wermelinger", "Tobias Wili"],
-        "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"]
+        "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"],
     }
 
     # Normalize specialist type (case insensitive and whitespace handling)
@@ -63,8 +62,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_architekt_availability(self):
         """Test checking availability for Architekt specialists."""
         result = await check_specialist_availability_test(
-            specialist_type="Architekt",
-            preferred_date="next Tuesday"
+            specialist_type="Architekt", preferred_date="next Tuesday"
         )
 
         assert isinstance(result, str)
@@ -82,8 +80,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_holzbau_ingenieur_availability(self):
         """Test checking availability for Holzbau-Ingenieur specialists."""
         result = await check_specialist_availability_test(
-            specialist_type="Holzbau-Ingenieur",
-            preferred_date="Monday morning"
+            specialist_type="Holzbau-Ingenieur", preferred_date="Monday morning"
         )
 
         assert isinstance(result, str)
@@ -100,8 +97,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_bauleiter_availability(self):
         """Test checking availability for Bauleiter specialists."""
         result = await check_specialist_availability_test(
-            specialist_type="Bauleiter",
-            preferred_date="Friday afternoon"
+            specialist_type="Bauleiter", preferred_date="Friday afternoon"
         )
 
         assert isinstance(result, str)
@@ -115,8 +111,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_planner_availability(self):
         """Test checking availability for Planner (alias for Architekt)."""
         result = await check_specialist_availability_test(
-            specialist_type="Planner",
-            preferred_date="Wednesday"
+            specialist_type="Planner", preferred_date="Wednesday"
         )
 
         assert isinstance(result, str)
@@ -129,8 +124,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_engineer_availability(self):
         """Test checking availability for Engineer (alias for Holzbau-Ingenieur)."""
         result = await check_specialist_availability_test(
-            specialist_type="Engineer",
-            preferred_date="Thursday"
+            specialist_type="Engineer", preferred_date="Thursday"
         )
 
         assert isinstance(result, str)
@@ -143,8 +137,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_unknown_specialist_type(self):
         """Test checking availability for unknown specialist type."""
         result = await check_specialist_availability_test(
-            specialist_type="UnknownSpecialist",
-            preferred_date="tomorrow"
+            specialist_type="UnknownSpecialist", preferred_date="tomorrow"
         )
 
         assert isinstance(result, str)
@@ -167,8 +160,7 @@ class TestCheckSpecialistAvailability:
 
         for date in date_formats:
             result = await check_specialist_availability_test(
-                specialist_type="Architekt",
-                preferred_date=date
+                specialist_type="Architekt", preferred_date=date
             )
 
             assert isinstance(result, str)
@@ -182,8 +174,7 @@ class TestCheckSpecialistAvailability:
     async def test_check_availability_empty_date(self):
         """Test checking availability with empty date."""
         result = await check_specialist_availability_test(
-            specialist_type="Architekt",
-            preferred_date=""
+            specialist_type="Architekt", preferred_date=""
         )
 
         assert isinstance(result, str)
@@ -206,8 +197,7 @@ class TestCheckSpecialistAvailability:
 
         for specialist_type, expected_name in test_cases:
             result = await check_specialist_availability_test(
-                specialist_type=specialist_type,
-                preferred_date="Monday"
+                specialist_type=specialist_type, preferred_date="Monday"
             )
 
             assert expected_name in result
@@ -216,13 +206,18 @@ class TestCheckSpecialistAvailability:
     @pytest.mark.tools
     async def test_check_availability_consistent_time_slots(self):
         """Test that time slots are consistent across all specialist types."""
-        specialist_types = ["Architekt", "Holzbau-Ingenieur", "Bauleiter", "Planner", "Engineer"]
+        specialist_types = [
+            "Architekt",
+            "Holzbau-Ingenieur",
+            "Bauleiter",
+            "Planner",
+            "Engineer",
+        ]
         expected_slots = ["09:00-10:00", "14:00-15:00", "16:00-17:00"]
 
         for specialist_type in specialist_types:
             result = await check_specialist_availability_test(
-                specialist_type=specialist_type,
-                preferred_date="Monday"
+                specialist_type=specialist_type, preferred_date="Monday"
             )
 
             for slot in expected_slots:
@@ -232,12 +227,12 @@ class TestCheckSpecialistAvailability:
     @pytest.mark.tools
     async def test_check_availability_office_location(self):
         """Test that office location is always included."""
-        result = await check_specialist_availability_test(
-            specialist_type="Architekt",
-            preferred_date="Monday"
+        _result = await check_specialist_availability_test(
+            specialist_type="Architekt", preferred_date="Monday"
         )
 
         # Office location not included in test version
+        # Result not used as this test just verifies no errors occur
 
     @pytest.mark.asyncio
     @pytest.mark.tools
@@ -253,8 +248,7 @@ class TestCheckSpecialistAvailability:
 
         for specialist_type, expected_names in specialist_mappings.items():
             result = await check_specialist_availability_test(
-                specialist_type=specialist_type,
-                preferred_date="Monday"
+                specialist_type=specialist_type, preferred_date="Monday"
             )
 
             for name in expected_names:
@@ -265,22 +259,21 @@ class TestCheckSpecialistAvailability:
     async def test_check_availability_return_format(self):
         """Test the format of the returned availability information."""
         result = await check_specialist_availability_test(
-            specialist_type="Architekt",
-            preferred_date="Monday"
+            specialist_type="Architekt", preferred_date="Monday"
         )
 
         # Check that result contains all required sections
-        lines = result.split('\n')
-        
+        lines = result.split("\n")
+
         # Should have header with emoji
         assert any("📅 Available Architekt:" in line for line in lines)
-        
+
         # Should have specialist names
         assert any("André Arnold" in line for line in lines)
-        
+
         # Should have time slots section
         assert any("Free slots" in line for line in lines)
-        
+
         # Office location not included in test version
         # assert any("Office location:" in line for line in lines)
 
@@ -296,8 +289,7 @@ class TestCheckSpecialistAvailability:
 
         for specialist_type, expected_name in test_cases:
             result = await check_specialist_availability_test(
-                specialist_type=specialist_type,
-                preferred_date="Monday"
+                specialist_type=specialist_type, preferred_date="Monday"
             )
 
             assert expected_name in result

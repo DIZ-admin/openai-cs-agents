@@ -2,7 +2,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { AgentEvent } from "@/lib/types";
+import type { AgentEvent, HandoffMetadata, ToolCallMetadata, ToolResultMetadata, ContextUpdateMetadata } from "@/lib/types";
 import {
   ArrowRightLeft,
   Wrench,
@@ -14,6 +14,23 @@ import { PanelSection } from "./panel-section";
 
 interface RunnerOutputProps {
   runnerEvents: AgentEvent[];
+}
+
+// Type guards for metadata
+function isHandoffMetadata(metadata: unknown): metadata is HandoffMetadata {
+  return typeof metadata === 'object' && metadata !== null && 'source_agent' in metadata && 'target_agent' in metadata;
+}
+
+function isToolCallMetadata(metadata: unknown): metadata is ToolCallMetadata {
+  return typeof metadata === 'object' && metadata !== null && 'tool_name' in metadata && 'tool_args' in metadata;
+}
+
+function isToolResultMetadata(metadata: unknown): metadata is ToolResultMetadata {
+  return typeof metadata === 'object' && metadata !== null && 'tool_result' in metadata;
+}
+
+function isContextUpdateMetadata(metadata: unknown): metadata is ContextUpdateMetadata {
+  return typeof metadata === 'object' && metadata !== null && 'context_key' in metadata;
 }
 
 function formatEventName(type: string) {
@@ -42,7 +59,7 @@ function EventDetails({ event }: { event: AgentEvent }) {
     "border border-gray-100 text-xs p-2.5 rounded-md flex flex-col gap-2";
   switch (event.type) {
     case "handoff":
-      details = event.metadata && (
+      details = event.metadata && isHandoffMetadata(event.metadata) && (
         <div className={className}>
           <div className="text-gray-600">
             <span className="text-zinc-600 font-medium">From:</span>{" "}
@@ -56,7 +73,7 @@ function EventDetails({ event }: { event: AgentEvent }) {
       );
       break;
     case "tool_call":
-      details = event.metadata && event.metadata.tool_args && (
+      details = event.metadata && isToolCallMetadata(event.metadata) && (
         <div className={className}>
           <div className="text-xs text-zinc-600 mb-1 font-medium">
             Arguments
@@ -68,7 +85,7 @@ function EventDetails({ event }: { event: AgentEvent }) {
       );
       break;
     case "tool_output":
-      details = event.metadata && event.metadata.tool_result && (
+      details = event.metadata && isToolResultMetadata(event.metadata) && (
         <div className={className}>
           <div className="text-xs text-zinc-600 mb-1 font-medium">Result</div>
           <pre className="text-xs text-gray-600 bg-gray-50 p-2 rounded overflow-x-auto">
@@ -78,13 +95,13 @@ function EventDetails({ event }: { event: AgentEvent }) {
       );
       break;
     case "context_update":
-      details = event.metadata?.changes && (
+      details = event.metadata && isContextUpdateMetadata(event.metadata) && event.metadata.changes && (
         <div className={className}>
           {Object.entries(event.metadata.changes).map(([key, value]) => (
             <div key={key} className="text-xs">
               <div className="text-gray-600">
                 <span className="text-zinc-600 font-medium">{key}:</span>{" "}
-                {value ?? "null"}
+                {String(value ?? "null")}
               </div>
             </div>
           ))}
@@ -107,8 +124,8 @@ function EventDetails({ event }: { event: AgentEvent }) {
 
 function TimeBadge({ timestamp }: { timestamp: Date }) {
   const date =
-    timestamp && typeof (timestamp as any)?.toDate === "function"
-      ? (timestamp as any).toDate()
+    timestamp && typeof (timestamp as Date & { toDate?: () => Date })?.toDate === "function"
+      ? (timestamp as Date & { toDate: () => Date }).toDate()
       : timestamp;
   const formattedDate = new Date(date).toLocaleTimeString([], {
     hour: "2-digit",

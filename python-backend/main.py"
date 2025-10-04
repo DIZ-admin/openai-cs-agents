@@ -47,7 +47,9 @@ class BuildingProjectContext(BaseModel):
     customer_email: str | None = None
     customer_phone: str | None = None
     project_number: str | None = None
-    project_type: str | None = None  # "Einfamilienhaus", "Mehrfamilienhaus", "Agrar", etc.
+    project_type: str | None = (
+        None  # "Einfamilienhaus", "Mehrfamilienhaus", "Agrar", etc.
+    )
     construction_type: str | None = None  # "Holzbau", "Systembau"
     area_sqm: float | None = None
     location: str | None = None
@@ -79,14 +81,22 @@ GUARDRAIL_MODEL = os.getenv("OPENAI_GUARDRAIL_MODEL", "gpt-4o-mini")
 
 # Settings for main agents (customer-facing, complex reasoning)
 MAIN_AGENT_SETTINGS = ModelSettings(
-    temperature=float(os.getenv("OPENAI_MAIN_AGENT_TEMPERATURE", "0.7")),  # Balanced creativity and consistency
-    max_tokens=int(os.getenv("OPENAI_MAIN_AGENT_MAX_TOKENS", "2000")),  # Sufficient for detailed responses
+    temperature=float(
+        os.getenv("OPENAI_MAIN_AGENT_TEMPERATURE", "0.7")
+    ),  # Balanced creativity and consistency
+    max_tokens=int(
+        os.getenv("OPENAI_MAIN_AGENT_MAX_TOKENS", "2000")
+    ),  # Sufficient for detailed responses
 )
 
 # Settings for guardrail agents (fast, deterministic checks)
 GUARDRAIL_SETTINGS = ModelSettings(
-    temperature=float(os.getenv("OPENAI_GUARDRAIL_TEMPERATURE", "0.0")),  # Deterministic for consistent guardrail behavior
-    max_tokens=int(os.getenv("OPENAI_GUARDRAIL_MAX_TOKENS", "500")),   # Short responses for yes/no decisions
+    temperature=float(
+        os.getenv("OPENAI_GUARDRAIL_TEMPERATURE", "0.0")
+    ),  # Deterministic for consistent guardrail behavior
+    max_tokens=int(
+        os.getenv("OPENAI_GUARDRAIL_MAX_TOKENS", "500")
+    ),  # Short responses for yes/no decisions
 )
 
 
@@ -185,7 +195,10 @@ async def faq_lookup_building(question: str) -> str:
 
 # Core function without decorator (for testing)
 async def estimate_project_cost_impl(
-    context: RunContextWrapper[BuildingProjectContext], project_type: str, area_sqm: float, construction_type: str
+    context: RunContextWrapper[BuildingProjectContext],
+    project_type: str,
+    area_sqm: float,
+    construction_type: str,
 ) -> str:
     """
     Provide a preliminary cost estimate for a building project.
@@ -262,17 +275,24 @@ async def estimate_project_cost_impl(
     description_override="Provide a preliminary cost estimate for a building project.",
 )
 async def estimate_project_cost(
-    context: RunContextWrapper[BuildingProjectContext], project_type: str, area_sqm: float, construction_type: str
+    context: RunContextWrapper[BuildingProjectContext],
+    project_type: str,
+    area_sqm: float,
+    construction_type: str,
 ) -> str:
     """Provide a preliminary cost estimate for a building project (tool wrapper)."""
-    return await estimate_project_cost_impl(context, project_type, area_sqm, construction_type)
+    return await estimate_project_cost_impl(
+        context, project_type, area_sqm, construction_type
+    )
 
 
 @function_tool(
     name_override="check_specialist_availability",
     description_override="Check availability of ERNI specialists for consultation.",
 )
-async def check_specialist_availability(specialist_type: str, preferred_date: str) -> str:
+async def check_specialist_availability(
+    specialist_type: str, preferred_date: str
+) -> str:
     """Check availability of specialists for consultation."""
     # Specialist mapping
     specialists = {
@@ -360,12 +380,23 @@ async def book_consultation(
 ) -> str:
     """Book a consultation with a specialist (tool wrapper)."""
     return await book_consultation_impl(
-        context, specialist_type, date, time, customer_name, customer_email, customer_phone
+        context,
+        specialist_type,
+        date,
+        time,
+        customer_name,
+        customer_email,
+        customer_phone,
     )
 
 
-@function_tool(name_override="get_project_status", description_override="Get the current status of a building project.")
-async def get_project_status(context: RunContextWrapper[BuildingProjectContext], project_number: str) -> str:
+@function_tool(
+    name_override="get_project_status",
+    description_override="Get the current status of a building project.",
+)
+async def get_project_status(
+    context: RunContextWrapper[BuildingProjectContext], project_number: str
+) -> str:
     """Get the current status of a building project."""
     # Mock project data (in production, this would query CRM/ERP)
     mock_projects = {
@@ -421,13 +452,17 @@ async def get_project_status(context: RunContextWrapper[BuildingProjectContext],
 # =========================
 
 
-async def on_cost_estimation_handoff(context: RunContextWrapper[BuildingProjectContext]) -> None:
+async def on_cost_estimation_handoff(
+    context: RunContextWrapper[BuildingProjectContext],
+) -> None:
     """Initialize context when handed off to cost estimation agent."""
     if context.context.inquiry_id is None:
         context.context.inquiry_id = f"INQ-{random.randint(10000, 99999)}"
 
 
-async def on_appointment_handoff(context: RunContextWrapper[BuildingProjectContext]) -> None:
+async def on_appointment_handoff(
+    context: RunContextWrapper[BuildingProjectContext],
+) -> None:
     """Initialize context when handed off to appointment booking agent."""
     if context.context.inquiry_id is None:
         context.context.inquiry_id = f"INQ-{random.randint(10000, 99999)}"
@@ -467,12 +502,16 @@ guardrail_agent = Agent(
 
 @input_guardrail(name="Relevance Guardrail")
 async def relevance_guardrail(
-    context: RunContextWrapper[None], agent: Agent, input: str | list[TResponseInputItem]
+    context: RunContextWrapper[None],
+    agent: Agent,
+    input: str | list[TResponseInputItem],
 ) -> GuardrailFunctionOutput:
     """Guardrail to check if input is relevant to building/construction topics."""
     result = await Runner.run(guardrail_agent, input, context=context.context)
     final = result.final_output_as(RelevanceOutput)
-    return GuardrailFunctionOutput(output_info=final, tripwire_triggered=not final.is_relevant)
+    return GuardrailFunctionOutput(
+        output_info=final, tripwire_triggered=not final.is_relevant
+    )
 
 
 class JailbreakOutput(BaseModel):
@@ -504,12 +543,16 @@ jailbreak_guardrail_agent = Agent(
 
 @input_guardrail(name="Jailbreak Guardrail")
 async def jailbreak_guardrail(
-    context: RunContextWrapper[None], agent: Agent, input: str | list[TResponseInputItem]
+    context: RunContextWrapper[None],
+    agent: Agent,
+    input: str | list[TResponseInputItem],
 ) -> GuardrailFunctionOutput:
     """Guardrail to detect jailbreak attempts."""
     result = await Runner.run(jailbreak_guardrail_agent, input, context=context.context)
     final = result.final_output_as(JailbreakOutput)
-    return GuardrailFunctionOutput(output_info=final, tripwire_triggered=not final.is_safe)
+    return GuardrailFunctionOutput(
+        output_info=final, tripwire_triggered=not final.is_safe
+    )
 
 
 # =========================
@@ -545,7 +588,8 @@ project_information_agent = Agent[BuildingProjectContext](
 
 # Cost Estimation Agent
 def cost_estimation_instructions(
-    run_context: RunContextWrapper[BuildingProjectContext], agent: Agent[BuildingProjectContext]
+    run_context: RunContextWrapper[BuildingProjectContext],
+    agent: Agent[BuildingProjectContext],
 ) -> str:
     """
     Generate dynamic instructions for the Cost Estimation Agent.
@@ -588,7 +632,8 @@ cost_estimation_agent = Agent[BuildingProjectContext](
 
 # Project Status Agent
 def project_status_instructions(
-    run_context: RunContextWrapper[BuildingProjectContext], agent: Agent[BuildingProjectContext]
+    run_context: RunContextWrapper[BuildingProjectContext],
+    agent: Agent[BuildingProjectContext],
 ) -> str:
     """
     Generate dynamic instructions for the Project Status Agent.
@@ -629,7 +674,8 @@ project_status_agent = Agent[BuildingProjectContext](
 
 # Appointment Booking Agent
 def appointment_booking_instructions(
-    run_context: RunContextWrapper[BuildingProjectContext], agent: Agent[BuildingProjectContext]
+    run_context: RunContextWrapper[BuildingProjectContext],
+    agent: Agent[BuildingProjectContext],
 ) -> str:
     """
     Generate dynamic instructions for the Appointment Booking Agent.

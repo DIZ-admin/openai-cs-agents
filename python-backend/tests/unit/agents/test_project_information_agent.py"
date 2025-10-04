@@ -25,9 +25,16 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_configuration(self):
         """Test that project information agent is properly configured."""
         assert project_information_agent.name == "Project Information Agent"
-        assert "general information" in project_information_agent.handoff_description.lower()
-        assert len(project_information_agent.tools) == 1  # Should have faq_lookup_building tool
-        assert len(project_information_agent.input_guardrails) == 2  # relevance and jailbreak
+        assert (
+            "general information"
+            in project_information_agent.handoff_description.lower()
+        )
+        assert (
+            len(project_information_agent.tools) == 1
+        )  # Should have faq_lookup_building tool
+        assert (
+            len(project_information_agent.input_guardrails) == 2
+        )  # relevance and jailbreak
         assert project_information_agent.model == "gpt-4o-mini"
         assert project_information_agent.model_settings is not None
         assert project_information_agent.model_settings.temperature == 0.7
@@ -38,9 +45,9 @@ class TestProjectInformationAgent:
         """Test that project information agent has correct tools."""
         tool_names = []
         for tool in project_information_agent.tools:
-            if hasattr(tool, 'name'):
+            if hasattr(tool, "name"):
                 tool_names.append(tool.name)
-            elif hasattr(tool, '__name__'):
+            elif hasattr(tool, "__name__"):
                 tool_names.append(tool.__name__)
 
         assert any("faq_lookup_building" in name for name in tool_names)
@@ -51,12 +58,16 @@ class TestProjectInformationAgent:
         """Test that project information agent has correct handoff targets."""
         handoff_names = []
         for handoff in project_information_agent.handoffs:
-            if hasattr(handoff, 'agent_name'):
+            if hasattr(handoff, "agent_name"):
                 handoff_names.append(handoff.agent_name)
-            elif hasattr(handoff, 'name'):
+            elif hasattr(handoff, "name"):
                 handoff_names.append(handoff.name)
 
-        expected_targets = ["Triage Agent", "Cost Estimation Agent", "Appointment Booking Agent"]
+        expected_targets = [
+            "Triage Agent",
+            "Cost Estimation Agent",
+            "Appointment Booking Agent",
+        ]
         for target in expected_targets:
             assert any(target in name for name in handoff_names)
 
@@ -65,10 +76,12 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_instructions(self, mock_context_wrapper):
         """Test project information agent instructions."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
-        
+
         assert isinstance(instructions, str)
         assert "Project Information Agent" in instructions
         assert "ERNI Gruppe" in instructions
@@ -76,20 +89,24 @@ class TestProjectInformationAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_information_agent_services_coverage(self, mock_context_wrapper):
+    async def test_project_information_agent_services_coverage(
+        self, mock_context_wrapper
+    ):
         """Test that instructions cover all ERNI services."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
         erni_services = [
             "Planung",
-            "Holzbau", 
+            "Holzbau",
             "Spenglerei",
             "Ausbau",
             "Realisation",
-            "Agrar"
+            "Agrar",
         ]
 
         for service in erni_services:
@@ -100,15 +117,13 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_project_types(self, mock_context_wrapper):
         """Test that instructions mention project types."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
-        project_types = [
-            "Einfamilienhaus",
-            "Mehrfamilienhaus",
-            "Agrar"
-        ]
+        project_types = ["Einfamilienhaus", "Mehrfamilienhaus", "Agrar"]
 
         for project_type in project_types:
             assert project_type in instructions
@@ -118,21 +133,27 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_certifications(self, mock_context_wrapper):
         """Test that instructions mention ERNI certifications."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
         certifications = ["Minergie", "Holzbau Plus"]
-        
+
         for cert in certifications:
             assert cert in instructions
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_information_agent_handoff_guidance(self, mock_context_wrapper):
+    async def test_project_information_agent_handoff_guidance(
+        self, mock_context_wrapper
+    ):
         """Test that instructions include handoff guidance."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
@@ -141,7 +162,7 @@ class TestProjectInformationAgent:
             "Cost Estimation Agent",
             "consultation",
             "Appointment Booking Agent",
-            "Triage Agent"
+            "Triage Agent",
         ]
 
         for guidance in handoff_guidance:
@@ -152,7 +173,9 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_tool_usage(self, mock_context_wrapper):
         """Test that instructions mention tool usage."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
@@ -163,12 +186,12 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_guardrails(self):
         """Test that project information agent has proper guardrails."""
         assert len(project_information_agent.input_guardrails) == 2
-        
+
         guardrail_names = []
         for guardrail in project_information_agent.input_guardrails:
-            if hasattr(guardrail, 'name'):
+            if hasattr(guardrail, "name"):
                 guardrail_names.append(guardrail.name)
-            elif hasattr(guardrail, '__name__'):
+            elif hasattr(guardrail, "__name__"):
                 guardrail_names.append(guardrail.__name__)
 
         assert any("relevance" in name.lower() for name in guardrail_names)
@@ -176,8 +199,10 @@ class TestProjectInformationAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    @patch('main.Runner.run')
-    async def test_project_information_agent_execution(self, mock_runner, mock_context_wrapper):
+    @patch("main.Runner.run")
+    async def test_project_information_agent_execution(
+        self, mock_runner, mock_context_wrapper
+    ):
         """Test project information agent execution with mocked Runner."""
         # Mock successful run
         mock_result = MagicMock()
@@ -187,8 +212,10 @@ class TestProjectInformationAgent:
 
         # Test input
         input_text = "Tell me about ERNI's building process"
-        
-        result = await mock_runner(project_information_agent, input_text, context=mock_context_wrapper.context)
+
+        result = await mock_runner(
+            project_information_agent, input_text, context=mock_context_wrapper.context
+        )
         assert result is not None
         mock_runner.assert_called()
 
@@ -200,36 +227,39 @@ class TestProjectInformationAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_information_agent_building_process(self, mock_context_wrapper):
+    async def test_project_information_agent_building_process(
+        self, mock_context_wrapper
+    ):
         """Test that instructions explain the building process."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
-        building_process_steps = [
-            "Planning",
-            "Production", 
-            "Assembly",
-            "Finishing"
-        ]
+        building_process_steps = ["Planning", "Production", "Assembly", "Finishing"]
 
         for step in building_process_steps:
             assert step in instructions
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_information_agent_timber_advantages(self, mock_context_wrapper):
+    async def test_project_information_agent_timber_advantages(
+        self, mock_context_wrapper
+    ):
         """Test that instructions mention timber construction advantages."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
         timber_advantages = [
             "timber construction",
             "advantages",
-            "holzbau"  # More specific match from actual instructions (German for timber construction)
+            "holzbau",  # More specific match from actual instructions (German for timber construction)
         ]
 
         for advantage in timber_advantages:
@@ -240,20 +270,26 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_friendly_tone(self, mock_context_wrapper):
         """Test that instructions emphasize friendly and informative tone."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
         tone_keywords = ["friendly", "informative", "explain", "help"]
-        
+
         assert any(keyword in instructions.lower() for keyword in tone_keywords)
 
     @pytest.mark.asyncio
     @pytest.mark.agents
-    async def test_project_information_agent_comprehensive_coverage(self, mock_context_wrapper):
+    async def test_project_information_agent_comprehensive_coverage(
+        self, mock_context_wrapper
+    ):
         """Test that agent covers all required information areas."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
@@ -262,7 +298,7 @@ class TestProjectInformationAgent:
             "services",
             "projects",
             "certifications",
-            "advantages"
+            "advantages",
         ]
 
         for area in coverage_areas:
@@ -273,14 +309,12 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_role_clarity(self, mock_context_wrapper):
         """Test that agent role is clearly defined."""
         if callable(project_information_agent.instructions):
-            instructions = project_information_agent.instructions(mock_context_wrapper, project_information_agent)
+            instructions = project_information_agent.instructions(
+                mock_context_wrapper, project_information_agent
+            )
         else:
             instructions = project_information_agent.instructions
 
-        role_indicators = [
-            "role is to explain",
-            "your role",
-            "explain to customers"
-        ]
+        role_indicators = ["role is to explain", "your role", "explain to customers"]
 
         assert any(indicator in instructions.lower() for indicator in role_indicators)
