@@ -93,7 +93,9 @@ services:
       # Session
       SESSION_TIMEOUT_MINUTES: 30
     volumes:
-      - ./python-backend:/app
+      # Note: Code volume mount removed for production build
+      # For development, uncomment this line:
+      # - ./python-backend:/app
       - backend_logs:/var/log/erni-backend
     ports:
       - "8000:8000"
@@ -122,10 +124,12 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: http://backend:8000
       NEXT_PUBLIC_ENVIRONMENT: production
-    volumes:
-      - ./ui:/app
-      - /app/node_modules
-      - /app/.next
+    # Note: Volume mounts removed for production build
+    # For development, uncomment these lines:
+    # volumes:
+    #   - ./ui:/app
+    #   - /app/node_modules
+    #   - /app/.next
     ports:
       - "3000:3000"
     healthcheck:
