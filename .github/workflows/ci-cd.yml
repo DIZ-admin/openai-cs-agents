@@ -234,9 +234,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-docker]
     if: github.ref == 'refs/heads/develop'
-    environment:
-      name: staging
-      url: https://staging.erni-agents.com
+    # environment:
+    #   name: staging
+    #   url: https://staging.erni-agents.com
     
     steps:
       - name: Checkout code
@@ -268,9 +268,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-docker]
     if: github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: https://erni-agents.com
+    # environment:
+    #   name: production
+    #   url: https://erni-agents.com
     
     steps:
       - name: Checkout code
@@ -294,11 +294,16 @@ jobs:
           sleep 30
           curl -f https://erni-agents.com/health || exit 1
       
-      - name: Notify deployment
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Production deployment completed'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        if: always()
+      # Uncomment when Slack webhook is configured
+      # - name: Notify deployment
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "Production deployment completed",
+      #         "status": "${{ job.status }}"
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      #   if: always()
 
