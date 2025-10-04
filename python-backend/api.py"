@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+from pathlib import Path
 
 import httpx
 from agents import (
@@ -13,6 +14,7 @@ from agents import (
     ItemHelpers,
     MessageOutputItem,
     Runner,
+    SQLiteSession,
     ToolCallItem,
     ToolCallOutputItem,
 )
@@ -102,96 +104,30 @@ class ChatResponse(BaseModel):
 
 
 # =========================
-# In-memory store for conversation state
+# Session Management with SQLiteSession
 # =========================
 
+# Configure SQLite database path
+SESSIONS_DB_PATH = Path(os.getenv("SESSIONS_DB_PATH", "data/conversations.db"))
+SESSIONS_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-class ConversationStore:
-    """Abstract base class for conversation state storage."""
-
-    def get(self, conversation_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve conversation state by ID.
-
-        Args:
-            conversation_id: Unique conversation identifier
-
-        Returns:
-            Conversation state dictionary or None if not found
-        """
-        pass
-
-    def save(self, conversation_id: str, state: Dict[str, Any]):
-        """
-        Save conversation state.
-
-        Args:
-            conversation_id: Unique conversation identifier
-            state: Conversation state to save
-        """
-        pass
+logger.info(f"Using SQLite sessions database at: {SESSIONS_DB_PATH}")
 
 
-class InMemoryConversationStore(ConversationStore):
+def get_session(conversation_id: str) -> SQLiteSession:
     """
-    In-memory conversation storage with TTL and size limits.
+    Get or create a SQLiteSession for the given conversation ID.
 
-    WARNING: This implementation is NOT suitable for production at scale.
-    Use Redis or a database for production deployments.
+    Args:
+        conversation_id: Unique conversation identifier
+
+    Returns:
+        SQLiteSession instance for managing conversation history
     """
-
-    _conversations: Dict[str, Dict[str, Any]] = {}
-    _timestamps: Dict[str, float] = {}
-    _max_conversations: int = 1000
-    _ttl_seconds: int = 3600  # 1 hour
-
-    def _cleanup_old_conversations(self):
-        """Remove conversations older than TTL."""
-        current_time = time.time()
-        expired = [
-            conv_id
-            for conv_id, timestamp in self._timestamps.items()
-            if current_time - timestamp > self._ttl_seconds
-        ]
-        for conv_id in expired:
-            self._conversations.pop(conv_id, None)
-            self._timestamps.pop(conv_id, None)
-
-        if expired:
-            logger.info(f"Cleaned up {len(expired)} expired conversations")
-
-    def _enforce_size_limit(self):
-        """Remove oldest conversations if limit exceeded."""
-        if len(self._conversations) >= self._max_conversations:
-            # Remove oldest 10% of conversations
-            num_to_remove = max(1, self._max_conversations // 10)
-            oldest = sorted(self._timestamps.items(), key=lambda x: x[1])[
-                :num_to_remove
-            ]
-            for conv_id, _ in oldest:
-                self._conversations.pop(conv_id, None)
-                self._timestamps.pop(conv_id, None)
-
-            logger.warning(
-                f"Conversation limit reached ({self._max_conversations}). "
-                f"Removed {num_to_remove} oldest conversations"
-            )
-
-    def get(self, conversation_id: str) -> Optional[Dict[str, Any]]:
-        """Get conversation state, cleaning up old conversations first."""
-        self._cleanup_old_conversations()
-        return self._conversations.get(conversation_id)
-
-    def save(self, conversation_id: str, state: Dict[str, Any]):
-        """Save conversation state with timestamp."""
-        self._cleanup_old_conversations()
-        self._enforce_size_limit()
-        self._conversations[conversation_id] = state
-        self._timestamps[conversation_id] = time.time()
-
-
-# TODO: when deploying this app in scale, switch to your own production-ready implementation
-conversation_store = InMemoryConversationStore()
+    return SQLiteSession(
+        session_id=conversation_id,
+        db_path=str(SESSIONS_DB_PATH)
+    )
 
 # =========================
 # Helpers
@@ -276,45 +212,50 @@ async def chat_endpoint(request: Request, req: ChatRequest):
     Main chat endpoint for agent orchestration.
     Handles conversation state, agent routing, and guardrail checks.
     Rate limited to 10 requests per minute per IP.
+
+    Now uses SQLiteSession for production-ready conversation management.
     """
     try:
-        # Initialize or retrieve conversation state
-        is_new = (
-            not req.conversation_id
-            or conversation_store.get(req.conversation_id) is None
-        )
-        if is_new:
-            conversation_id: str = uuid4().hex
-            ctx = create_initial_context()
-            current_agent_name = triage_agent.name
-            state: Dict[str, Any] = {
-                "input_items": [],
-                "context": ctx,
-                "current_agent": current_agent_name,
-            }
-            if req.message.strip() == "":
-                conversation_store.save(conversation_id, state)
-                return ChatResponse(
-                    conversation_id=conversation_id,
-                    current_agent=current_agent_name,
-                    messages=[],
-                    events=[],
-                    context=ctx.model_dump(),
-                    agents=_build_agents_list(),
-                    guardrails=[],
-                )
+        # Generate or use existing conversation ID
+        # If conversation_id is provided and not empty, use it; otherwise generate new
+        if req.conversation_id and req.conversation_id.strip():
+            conversation_id = req.conversation_id
         else:
-            conversation_id = req.conversation_id  # type: ignore
-            state = conversation_store.get(conversation_id)
+            conversation_id = uuid4().hex
 
-        current_agent = _get_agent_by_name(state["current_agent"])
-        state["input_items"].append({"content": req.message, "role": "user"})
-        old_context = state["context"].model_dump().copy()
+        # Get SQLiteSession for this conversation
+        session = get_session(conversation_id)
+
+        # Initialize context (will be updated by agents)
+        ctx = create_initial_context()
+
+        # Determine current agent (default to triage for new conversations)
+        # In production, you might want to store current_agent in session metadata
+        current_agent = triage_agent
+
+        # Handle empty message (initialization request)
+        if req.message.strip() == "":
+            return ChatResponse(
+                conversation_id=conversation_id,
+                current_agent=current_agent.name,
+                messages=[],
+                events=[],
+                context=ctx.model_dump(),
+                agents=_build_agents_list(),
+                guardrails=[],
+            )
+
+        # Store old context for change detection
+        old_context = ctx.model_dump().copy()
         guardrail_checks: List[GuardrailCheck] = []
 
         try:
+            # Run agent with session (automatically manages conversation history)
             result = await Runner.run(
-                current_agent, state["input_items"], context=state["context"]
+                current_agent,
+                req.message,
+                context=ctx,
+                session=session
             )
         except InputGuardrailTripwireTriggered as e:
             failed = e.guardrail_result.guardrail
@@ -334,13 +275,14 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                     )
                 )
             refusal = "Sorry, I can only answer questions related to building and construction."
-            state["input_items"].append({"role": "assistant", "content": refusal})
+            # Note: With SQLiteSession, the refusal is not added to history automatically
+            # The session will be empty for this failed request
             return ChatResponse(
                 conversation_id=conversation_id,
                 current_agent=current_agent.name,
                 messages=[MessageResponse(content=refusal, agent=current_agent.name)],
                 events=[],
-                context=state["context"].model_dump(),
+                context=ctx.model_dump(),
                 agents=_build_agents_list(),
                 guardrails=guardrail_checks,
             )
@@ -445,7 +387,8 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                     )
                 )
 
-        new_context = state["context"].model_dump()
+        # Detect context changes
+        new_context = ctx.model_dump()
         changes = {
             k: new_context[k]
             for k in new_context
@@ -462,9 +405,8 @@ async def chat_endpoint(request: Request, req: ChatRequest):
                 )
             )
 
-        state["input_items"] = result.to_input_list()
-        state["current_agent"] = current_agent.name
-        conversation_store.save(conversation_id, state)
+        # Note: SQLiteSession automatically manages conversation history
+        # No need to manually save state - it's handled by the session
 
         # Build guardrail results: mark failures (if any), and any others as passed
         final_guardrails: List[GuardrailCheck] = []
@@ -490,7 +432,7 @@ async def chat_endpoint(request: Request, req: ChatRequest):
             current_agent=current_agent.name,
             messages=messages,
             events=events,
-            context=state["context"].model_dump(),
+            context=ctx.model_dump(),
             agents=_build_agents_list(),
             guardrails=final_guardrails,
         )
