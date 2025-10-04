@@ -21,6 +21,13 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       const data = await callChatAPI("", conversationId ?? "");
+
+      // Check if API call was successful
+      if (!data) {
+        console.error("Failed to initialize conversation - backend not available");
+        return;
+      }
+
       setConversationId(data.conversation_id);
       setCurrentAgent(data.current_agent);
       setContext(data.context);
@@ -58,6 +65,20 @@ export default function Home() {
     setIsLoading(true);
 
     const data = await callChatAPI(content, conversationId ?? "");
+
+    // Check if API call was successful
+    if (!data) {
+      // Add error message to chat
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        content: "❌ Error: Unable to connect to the backend server.\n\nPlease make sure:\n1. Backend is running on http://localhost:8000\n2. Run: cd python-backend && source .venv/bin/activate && uvicorn api:app --reload --host 0.0.0.0 --port 8000",
+        role: "assistant",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      setIsLoading(false);
+      return;
+    }
 
     if (!conversationId) setConversationId(data.conversation_id);
     setCurrentAgent(data.current_agent);

@@ -391,7 +391,7 @@ Booking: [Uses book_consultation]
 
 ### 6. FAQ Agent
 
-**Purpose:** Answers frequently asked questions about building materials, processes, timelines, certifications, and warranties.
+**Purpose:** Answers frequently asked questions about building materials, processes, timelines, certifications, and warranties. **Now includes direct links to relevant ERNI Gruppe website pages.**
 
 **Handoff Description:**
 > "Answers frequently asked questions about ERNI and building with timber."
@@ -400,20 +400,28 @@ Booking: [Uses book_consultation]
 ```
 You are an FAQ Agent for ERNI Gruppe.
 
+You have access to:
+1. Comprehensive knowledge base (erni_knowledge_base.json)
+2. Complete website sitemap (erni_sitemap.json)
+
 Answer questions about:
 - Building materials (timber, wood, ecology)
 - Certifications (Minergie, Holzbau Plus)
 - Construction timelines
 - Warranties and guarantees
 - ERNI's services and processes
+- Company information, team, contact
 
-Always use faq_lookup_building tool. Do not rely on your own knowledge.
+Always use file_search tool to find accurate information.
+ALWAYS include 1-3 relevant website links in your responses.
+Format links as markdown: [Descriptive Text](URL)
 
 If you cannot answer, transfer to Triage Agent.
 ```
 
 **Available Tools:**
-- `faq_lookup_building`
+- `FileSearchTool` (accesses Vector Store with knowledge base and sitemap)
+- `faq_lookup_building` (fallback)
 
 **Input Guardrails:**
 - Relevance Guardrail
@@ -425,9 +433,9 @@ If you cannot answer, transfer to Triage Agent.
 **Example Dialogue:**
 ```
 Customer: "Why should I choose wood for my house?"
-FAQ: [Uses faq_lookup_building]
+FAQ: [Uses file_search tool]
      "🌲 Why Wood?
-     
+
      Wood is the ideal building material:
      ✓ Ecological and renewable
      ✓ Grows in Swiss forests
@@ -435,9 +443,36 @@ FAQ: [Uses faq_lookup_building]
      ✓ Healthy indoor climate
      ✓ CO2-neutral
      ✓ Fast assembly (saves time)
-     
-     ERNI is a certified Minergie partner."
+
+     ERNI is a certified Minergie partner.
+
+     Mehr erfahren:
+     🌲 [Werk- und Baustoff Holz](https://www.erni-gruppe.ch/erni-gruppe/holz)
+     🏆 [Mitgliedschaften & Partner](https://www.erni-gruppe.ch/erni-gruppe/mitgliedschaften-partner)"
+
+Customer: "What planning services do you offer?"
+FAQ: [Uses file_search tool]
+     "ERNI Gruppe bietet umfassende Planungsdienstleistungen an:
+     - Entwurf & Vorprojekt
+     - Detaillierte Planungsarbeit
+     - Baubewilligung
+     - Bauleitung
+     - Minergie-Berechnungen
+
+     Unser Planungsteam wird geleitet von André Arnold und Stefan Gisler.
+
+     Mehr Informationen:
+     📋 [Planung - Übersicht](https://www.erni-gruppe.ch/planung)
+     📐 [Entwurf & Vorprojekt](https://www.erni-gruppe.ch/planung/entwurf-vorprojekt)
+     👥 [Team Planung](https://www.erni-gruppe.ch/planung/kernkompetenzen-team)"
 ```
+
+**New Feature - Website Links:**
+The FAQ Agent now provides direct links to relevant ERNI Gruppe website pages, helping customers find detailed information. Links are:
+- Formatted as clickable markdown
+- Provided in customer's language (German/English)
+- Limited to 1-3 most relevant links per response
+- Selected based on question topic (services, contact, certifications, etc.)
 
 ---
 
