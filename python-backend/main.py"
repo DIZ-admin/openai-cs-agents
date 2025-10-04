@@ -1,11 +1,15 @@
 from __future__ import annotations as _annotations
 
+import logging
 import os
 import random
 import json
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 from agents import (
     Agent,
@@ -200,7 +204,14 @@ async def faq_lookup_building_impl(question: str) -> str:
 )
 async def faq_lookup_building(question: str) -> str:
     """Lookup answers to frequently asked questions about building with ERNI (tool wrapper)."""
-    return await faq_lookup_building_impl(question)
+    try:
+        return await faq_lookup_building_impl(question)
+    except ValueError as e:
+        logger.error(f"Validation error in faq_lookup_building: {e}")
+        return f"❌ Error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in faq_lookup_building: {e}", exc_info=True)
+        return "❌ An error occurred while looking up the FAQ. Please try again or contact support."
 
 
 # Core function without decorator (for testing)
@@ -291,9 +302,16 @@ async def estimate_project_cost(
     construction_type: str,
 ) -> str:
     """Provide a preliminary cost estimate for a building project (tool wrapper)."""
-    return await estimate_project_cost_impl(
-        context, project_type, area_sqm, construction_type
-    )
+    try:
+        return await estimate_project_cost_impl(
+            context, project_type, area_sqm, construction_type
+        )
+    except ValueError as e:
+        logger.error(f"Validation error in estimate_project_cost: {e}")
+        return f"❌ Error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in estimate_project_cost: {e}", exc_info=True)
+        return "❌ An error occurred while estimating the cost. Please try again or contact support."
 
 
 @function_tool(
@@ -304,26 +322,33 @@ async def check_specialist_availability(
     specialist_type: str, preferred_date: str
 ) -> str:
     """Check availability of specialists for consultation."""
-    # Specialist mapping
-    specialists = {
-        "Architekt": ["André Arnold", "Stefan Gisler"],
-        "Holzbau-Ingenieur": ["Andreas Wermelinger", "Tobias Wili"],
-        "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"],
-        "Planner": ["André Arnold", "Stefan Gisler"],
-        "Engineer": ["Andreas Wermelinger", "Tobias Wili"],
-    }
+    try:
+        # Specialist mapping
+        specialists = {
+            "Architekt": ["André Arnold", "Stefan Gisler"],
+            "Holzbau-Ingenieur": ["Andreas Wermelinger", "Tobias Wili"],
+            "Bauleiter": ["Wolfgang Reinsch", "Marco Kaiser"],
+            "Planner": ["André Arnold", "Stefan Gisler"],
+            "Engineer": ["Andreas Wermelinger", "Tobias Wili"],
+        }
 
-    available = specialists.get(specialist_type, ["Specialist"])
+        available = specialists.get(specialist_type, ["Specialist"])
 
-    return (
-        f"📅 Available {specialist_type}:\n"
-        f"{', '.join(available)}\n\n"
-        f"Free time slots on {preferred_date}:\n"
-        f"- 09:00-10:00\n"
-        f"- 14:00-15:00\n"
-        f"- 16:00-17:00\n\n"
-        f"Office location: ERNI Gruppe, Guggibadstrasse 8, 6288 Schongau"
-    )
+        return (
+            f"📅 Available {specialist_type}:\n"
+            f"{', '.join(available)}\n\n"
+            f"Free time slots on {preferred_date}:\n"
+            f"- 09:00-10:00\n"
+            f"- 14:00-15:00\n"
+            f"- 16:00-17:00\n\n"
+            f"Office location: ERNI Gruppe, Guggibadstrasse 8, 6288 Schongau"
+        )
+    except ValueError as e:
+        logger.error(f"Validation error in check_specialist_availability: {e}")
+        return f"❌ Error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in check_specialist_availability: {e}", exc_info=True)
+        return "❌ An error occurred while checking availability. Please try again or contact support."
 
 
 # Core function without decorator (for testing)
@@ -389,15 +414,22 @@ async def book_consultation(
     customer_phone: str,
 ) -> str:
     """Book a consultation with a specialist (tool wrapper)."""
-    return await book_consultation_impl(
-        context,
-        specialist_type,
-        date,
-        time,
-        customer_name,
-        customer_email,
-        customer_phone,
-    )
+    try:
+        return await book_consultation_impl(
+            context,
+            specialist_type,
+            date,
+            time,
+            customer_name,
+            customer_email,
+            customer_phone,
+        )
+    except ValueError as e:
+        logger.error(f"Validation error in book_consultation: {e}")
+        return f"❌ Error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in book_consultation: {e}", exc_info=True)
+        return "❌ An error occurred while booking the consultation. Please try again or contact support."
 
 
 @function_tool(
@@ -408,53 +440,60 @@ async def get_project_status(
     context: RunContextWrapper[BuildingProjectContext], project_number: str
 ) -> str:
     """Get the current status of a building project."""
-    # Mock project data (in production, this would query CRM/ERP)
-    mock_projects = {
-        "2024-156": {
-            "type": "Einfamilienhaus",
-            "location": "Muri",
-            "stage": "Production",
-            "progress": 75,
-            "next_milestone": "Assembly 15-19 May 2025",
-            "responsible": "Tobias Wili",
-        },
-        "2024-089": {
-            "type": "Mehrfamilienhaus",
-            "location": "Schongau",
-            "stage": "Planning",
-            "progress": 40,
-            "next_milestone": "Building permit submission 10 June 2025",
-            "responsible": "André Arnold",
-        },
-        "2023-234": {
-            "type": "Agrar",
-            "location": "Hochdorf",
-            "stage": "Completed",
-            "progress": 100,
-            "next_milestone": "Final inspection completed",
-            "responsible": "Stefan Gisler",
-        },
-    }
+    try:
+        # Mock project data (in production, this would query CRM/ERP)
+        mock_projects = {
+            "2024-156": {
+                "type": "Einfamilienhaus",
+                "location": "Muri",
+                "stage": "Production",
+                "progress": 75,
+                "next_milestone": "Assembly 15-19 May 2025",
+                "responsible": "Tobias Wili",
+            },
+            "2024-089": {
+                "type": "Mehrfamilienhaus",
+                "location": "Schongau",
+                "stage": "Planning",
+                "progress": 40,
+                "next_milestone": "Building permit submission 10 June 2025",
+                "responsible": "André Arnold",
+            },
+            "2023-234": {
+                "type": "Agrar",
+                "location": "Hochdorf",
+                "stage": "Completed",
+                "progress": 100,
+                "next_milestone": "Final inspection completed",
+                "responsible": "Stefan Gisler",
+            },
+        }
 
-    project = mock_projects.get(project_number)
-    if not project:
+        project = mock_projects.get(project_number)
+        if not project:
+            return (
+                f"❌ Project {project_number} not found.\n"
+                f"Please check the project number or contact us at 041 570 70 70."
+            )
+
+        context.context.project_number = project_number
+
         return (
-            f"❌ Project {project_number} not found.\n"
-            f"Please check the project number or contact us at 041 570 70 70."
+            f"📊 Project Status #{project_number}\n\n"
+            f"Type: {project['type']}\n"
+            f"Location: {project['location']}\n"
+            f"Current stage: {project['stage']}\n"
+            f"Progress: {project['progress']}%\n"
+            f"Next milestone: {project['next_milestone']}\n"
+            f"Project manager: {project['responsible']}\n\n"
+            f"Everything is on schedule! 🏗️"
         )
-
-    context.context.project_number = project_number
-
-    return (
-        f"📊 Project Status #{project_number}\n\n"
-        f"Type: {project['type']}\n"
-        f"Location: {project['location']}\n"
-        f"Current stage: {project['stage']}\n"
-        f"Progress: {project['progress']}%\n"
-        f"Next milestone: {project['next_milestone']}\n"
-        f"Project manager: {project['responsible']}\n\n"
-        f"Everything is on schedule! 🏗️"
-    )
+    except ValueError as e:
+        logger.error(f"Validation error in get_project_status: {e}")
+        return f"❌ Error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in get_project_status: {e}", exc_info=True)
+        return "❌ An error occurred while retrieving project status. Please try again or contact support."
 
 
 # =========================
