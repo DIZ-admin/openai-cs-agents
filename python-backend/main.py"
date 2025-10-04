@@ -23,6 +23,7 @@ from agents import (
     function_tool,
     handoff,
     input_guardrail,
+    output_guardrail,
 )
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from pydantic import BaseModel
@@ -640,6 +641,51 @@ async def jailbreak_guardrail(
     )
 
 
+class PIIOutput(BaseModel):
+    """Schema for PII guardrail decisions."""
+
+    reasoning: str
+    contains_pii: bool
+    pii_types: list[str] = []
+
+
+pii_guardrail_agent = Agent(
+    name="PII Guardrail",
+    model=GUARDRAIL_MODEL,
+    model_settings=GUARDRAIL_SETTINGS,
+    instructions=(
+        "Detect if the agent's response contains Personally Identifiable Information (PII) "
+        "that should not be exposed to the user. Check for:\n"
+        "- Email addresses (except generic company emails like info@erni-gruppe.ch)\n"
+        "- Phone numbers (except official company phone numbers like 041 570 70 70)\n"
+        "- Credit card numbers\n"
+        "- Social security numbers\n"
+        "- Passport numbers\n"
+        "- Driver's license numbers\n"
+        "- Bank account numbers\n"
+        "- Personal addresses (except company address: Guggibadstrasse 8, 6288 Schongau)\n\n"
+        "Return contains_pii=True if sensitive PII is found, else False. "
+        "List the types of PII found in pii_types array. "
+        "Provide brief reasoning for your decision."
+    ),
+    output_type=PIIOutput,
+)
+
+
+@output_guardrail(name="PII Guardrail")
+async def pii_guardrail(
+    context: RunContextWrapper[None],
+    agent: Agent,
+    output: str,
+) -> GuardrailFunctionOutput:
+    """Guardrail to detect PII in agent responses."""
+    result = await Runner.run(pii_guardrail_agent, output, context=context.context)
+    final = result.final_output_as(PIIOutput)
+    return GuardrailFunctionOutput(
+        output_info=final, tripwire_triggered=final.contains_pii
+    )
+
+
 # =========================
 # AGENTS
 # =========================
@@ -668,6 +714,7 @@ project_information_agent = Agent[BuildingProjectContext](
     For other questions, transfer back to the Triage Agent.""",
     tools=[faq_lookup_building],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 
@@ -712,6 +759,7 @@ cost_estimation_agent = Agent[BuildingProjectContext](
     instructions=cost_estimation_instructions,
     tools=[estimate_project_cost],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 
@@ -754,6 +802,7 @@ project_status_agent = Agent[BuildingProjectContext](
     instructions=project_status_instructions,
     tools=[get_project_status],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 
@@ -801,6 +850,7 @@ appointment_booking_agent = Agent[BuildingProjectContext](
     instructions=appointment_booking_instructions,
     tools=[check_specialist_availability, book_consultation],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 # FAQ Agent - Uses Vector Store for ERNI Gruppe Knowledge Base
@@ -925,6 +975,7 @@ faq_agent = Agent[BuildingProjectContext](
         faq_lookup_building,  # Keep as fallback for backward compatibility
     ],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 # Triage Agent
@@ -952,6 +1003,7 @@ triage_agent = Agent[BuildingProjectContext](
         faq_agent,
     ],
     input_guardrails=[relevance_guardrail, jailbreak_guardrail],
+    output_guardrails=[pii_guardrail],
 )
 
 # Set up bidirectional handoff relationships
