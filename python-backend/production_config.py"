@@ -177,8 +177,8 @@ class CustomerContactValidation(BaseModel):
     """Validation model for customer contact information."""
 
     name: str = Field(..., min_length=2, max_length=100)
-    email: str = Field(..., regex=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-    phone: str = Field(..., regex=r"^\+41\s?\d{2}\s?\d{3}\s?\d{2}\s?\d{2}$")
+    email: str = Field(..., pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+    phone: str = Field(..., pattern=r"^\+41\s?\d{2}\s?\d{3}\s?\d{2}\s?\d{2}$")
 
     @validator("name")
     def validate_name(cls, v):
@@ -202,9 +202,9 @@ class ProjectDataValidation(BaseModel):
     """Validation model for project data."""
 
     project_type: str = Field(
-        ..., regex=r"^(Einfamilienhaus|Mehrfamilienhaus|Agrar|Renovation)$"
+        ..., pattern=r"^(Einfamilienhaus|Mehrfamilienhaus|Agrar|Renovation)$"
     )
-    construction_type: str = Field(..., regex=r"^(Holzbau|Systembau)$")
+    construction_type: str = Field(..., pattern=r"^(Holzbau|Systembau)$")
     area_sqm: float = Field(..., gt=0, le=10000)
     location: Optional[str] = Field(None, max_length=200)
 
