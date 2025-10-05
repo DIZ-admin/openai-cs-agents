@@ -1121,6 +1121,8 @@ async def chat_endpoint(
 
         # Build guardrail results: mark failures (if any), and any others as passed
         final_guardrails: List[GuardrailCheck] = []
+
+        # Add input guardrails
         for g in getattr(current_agent, "input_guardrails", []):
             name = _get_guardrail_name(g)
             failed = next((gc for gc in guardrail_checks if gc.name == name), None)
@@ -1137,6 +1139,22 @@ async def chat_endpoint(
                         timestamp=time.time() * 1000,
                     )
                 )
+
+        # Add output guardrails (always passed if no exception was raised)
+        for g in getattr(current_agent, "output_guardrails", []):
+            name = _get_guardrail_name(g)
+            # Output guardrails check agent responses, not user input
+            # If we reached here, output guardrails passed (no OutputGuardrailTripwireTriggered)
+            final_guardrails.append(
+                GuardrailCheck(
+                    id=uuid4().hex,
+                    name=name,
+                    input="",  # Output guardrails don't have user input
+                    reasoning="",
+                    passed=True,
+                    timestamp=time.time() * 1000,
+                )
+            )
 
         # Save context for next request (preserve inquiry_id and other context)
         session_manager.set_context(conversation_id, ctx.model_dump())
