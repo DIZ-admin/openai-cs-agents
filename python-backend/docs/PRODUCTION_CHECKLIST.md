@@ -213,7 +213,7 @@
 - [ ] **Technical Documentation**
   - [ ] DEPLOYMENT.md completed
   - [ ] AGENTS.md up to date
-  - [ ] ERNI_ADAPTATION.md reviewed
+  - [ ] planning.md reviewed
   - [ ] API documentation generated
   - [ ] Architecture diagrams created
 
@@ -377,4 +377,3 @@ Rollback immediately if:
 
 **Last Updated:** January 2025  
 **Version:** 1.0.0
-

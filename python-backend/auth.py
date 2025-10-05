@@ -35,7 +35,14 @@ from pydantic import BaseModel
 # ============================================================================
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production-NEVER-USE-IN-PROD")
+_jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not _jwt_secret:
+    _jwt_secret = os.getenv("SECRET_KEY")
+
+if not _jwt_secret:
+    _jwt_secret = "dev-secret-key-change-in-production-NEVER-USE-IN-PROD"
+
+SECRET_KEY = _jwt_secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
@@ -285,15 +292,12 @@ async def get_optional_current_user(
     """
     import os
 
-    # If authentication is not required, return None
-    if os.getenv("REQUIRE_AUTH", "false").lower() != "true":
+    require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true"
+
+    # No credentials provided – optional dependency just returns None
+    if credentials is None or not credentials.credentials:
         return None
 
-    # If no credentials provided, return None
-    if credentials is None:
-        return None
-
-    # Otherwise, validate credentials
     try:
         token = credentials.credentials
         token_data = decode_access_token(token)
@@ -308,6 +312,13 @@ async def get_optional_current_user(
 
         return user
     except Exception:
+        # If authentication is required, raise to signal invalid credentials
+        if require_auth:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return None
 
 
@@ -357,4 +368,3 @@ def require_role(required_role: str):
         return current_user
     
     return role_checker
-

@@ -233,7 +233,10 @@ async def faq_lookup_building_impl(question: str) -> str:
             "✓ Healthy indoor climate\n"
             "✓ CO2-neutral\n"
             "✓ Fast assembly (saves time)\n\n"
-            "ERNI is a certified Minergie partner."
+            "ERNI is a certified Minergie partner.\n\n"
+            "Mehr erfahren:\n"
+            "- [Werk- und Baustoff Holz](https://www.erni-gruppe.ch/erni-gruppe/holz)\n"
+            "- [Holzbau Leistungen](https://www.erni-gruppe.ch/leistungen/holzbau)"
         )
 
     elif "zeit" in q or "time" in q or "dauer" in q or "duration" in q or "срок" in q:
@@ -245,7 +248,10 @@ async def faq_lookup_building_impl(question: str) -> str:
             "- Assembly: 2-4 weeks\n"
             "- Finishing: 4-8 weeks\n\n"
             "Total duration: 6-9 months for a single-family house\n\n"
-            "Thanks to prefabrication in our workshop, on-site assembly takes only a few weeks!"
+            "Thanks to prefabrication in our workshop, on-site assembly takes only a few weeks!\n\n"
+            "Mehr erfahren:\n"
+            "- [Planung & Architektur](https://www.erni-gruppe.ch/leistungen/planung)\n"
+            "- [Realisation](https://www.erni-gruppe.ch/leistungen/realisation)"
         )
 
     elif "minergie" in q or "certificate" in q or "zertifikat" in q:
@@ -254,7 +260,10 @@ async def faq_lookup_building_impl(question: str) -> str:
             "✓ Minergie-Fachpartner Gebäudehülle\n"
             "✓ Holzbau Plus (quality and innovation)\n\n"
             "Minergie is the Swiss standard for energy efficiency.\n"
-            "Minergie houses consume 80% less energy!"
+            "Minergie houses consume 80% less energy!\n\n"
+            "Mehr erfahren:\n"
+            "- [Mitgliedschaften & Partner](https://www.erni-gruppe.ch/erni-gruppe/mitgliedschaften-partner)\n"
+            "- [Minergie Gebäudehülle](https://www.erni-gruppe.ch/leistungen/minergie)"
         )
 
     elif "garantie" in q or "warranty" in q or "гарант" in q:
@@ -263,7 +272,10 @@ async def faq_lookup_building_impl(question: str) -> str:
             "- Construction warranty: 5 years\n"
             "- Roof warranty: 5 years\n"
             "- Windows/doors warranty: 2 years\n\n"
-            "Plus regular maintenance through our Dachservice."
+            "Plus regular maintenance through our Dachservice.\n\n"
+            "Mehr erfahren:\n"
+            "- [Dachservice](https://www.erni-gruppe.ch/leistungen/dachservice)\n"
+            "- [Holzbau Qualität](https://www.erni-gruppe.ch/leistungen/holzbau)"
         )
 
     elif "preis" in q or "cost" in q or "price" in q or "kosten" in q:
@@ -274,7 +286,10 @@ async def faq_lookup_building_impl(question: str) -> str:
             "- Area in m²\n"
             "- Construction type (timber frame, system construction)\n"
             "- Location\n\n"
-            "I can provide a preliminary estimate or arrange a consultation with our architect."
+            "I can provide a preliminary estimate or arrange a consultation with our architect.\n\n"
+            "Mehr erfahren:\n"
+            "- [Planung & Beratung](https://www.erni-gruppe.ch/leistungen/planung)\n"
+            "- [Kontakt & Anfrage](https://www.erni-gruppe.ch/kontakt)"
         )
 
     elif "service" in q or "wartung" in q or "maintenance" in q:
@@ -287,12 +302,18 @@ async def faq_lookup_building_impl(question: str) -> str:
             "- Interior Finishing (Ausbau)\n"
             "- General/Total Contracting (Realisation)\n"
             "- Agricultural Buildings (Agrar)\n\n"
-            "Everything under one roof!"
+            "Everything under one roof!\n\n"
+            "Mehr erfahren:\n"
+            "- [Leistungen im Überblick](https://www.erni-gruppe.ch/leistungen)\n"
+            "- [Ausbau](https://www.erni-gruppe.ch/leistungen/ausbau)"
         )
 
     return (
         "I'm sorry, I don't have an answer to that specific question. "
-        "Would you like to speak with one of our consultants?"
+        "Would you like to speak with one of our consultants?\n\n"
+        "Mehr erfahren:\n"
+        "- [Kontakt & Standorte](https://www.erni-gruppe.ch/kontakt)\n"
+        "- [FAQ Übersicht](https://www.erni-gruppe.ch/erni-gruppe/faq)"
     )
 
 
