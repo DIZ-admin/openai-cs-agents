@@ -30,6 +30,8 @@ export interface Agent {
   tools: string[]
   /** List of input guardrail identifiers for this agent */
   input_guardrails: string[]
+  /** List of output guardrail identifiers for this agent */
+  output_guardrails: string[]
 }
 
 export type EventType = "message" | "handoff" | "tool_call" | "tool_output" | "context_update"

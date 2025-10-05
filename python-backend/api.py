@@ -646,6 +646,9 @@ def _build_agents_list() -> List[Dict[str, Any]]:
             "input_guardrails": [
                 _get_guardrail_name(g) for g in getattr(agent, "input_guardrails", [])
             ],
+            "output_guardrails": [
+                _get_guardrail_name(g) for g in getattr(agent, "output_guardrails", [])
+            ],
         }
 
     return [
@@ -1321,7 +1324,8 @@ Returns a list of agents with their:
 - Description (handoff description)
 - Available handoffs to other agents
 - Available tools
-- Configured guardrails
+- Configured input guardrails (validate user input)
+- Configured output guardrails (validate agent responses)
 
 This endpoint is useful for understanding the agent architecture and capabilities.
     """,
@@ -1337,7 +1341,8 @@ This endpoint is useful for understanding the agent architecture and capabilitie
                                 "description": "Main routing agent",
                                 "handoffs": ["Project Information Agent", "Cost Estimation Agent"],
                                 "tools": [],
-                                "guardrails": ["Relevance Guardrail", "Jailbreak Guardrail"]
+                                "input_guardrails": ["Relevance Guardrail", "Jailbreak Guardrail"],
+                                "output_guardrails": ["PII Guardrail"]
                             }
                         ],
                         "total": 6

@@ -9,24 +9,34 @@ import type { GuardrailCheck } from "@/lib/types";
 interface GuardrailsProps {
   guardrails: GuardrailCheck[];
   inputGuardrails: string[];
+  outputGuardrails: string[];
 }
 
-export function Guardrails({ guardrails, inputGuardrails }: GuardrailsProps) {
+export function Guardrails({ guardrails, inputGuardrails, outputGuardrails }: GuardrailsProps) {
   const guardrailNameMap: Record<string, string> = {
     relevance_guardrail: "Relevance Guardrail",
     jailbreak_guardrail: "Jailbreak Guardrail",
+    pii_guardrail: "PII Guardrail",
   };
 
   const guardrailDescriptionMap: Record<string, string> = {
     "Relevance Guardrail": "Ensure messages are relevant to building and construction",
     "Jailbreak Guardrail":
       "Detect and block attempts to bypass or override system instructions",
+    "PII Guardrail":
+      "Prevent exposure of Personally Identifiable Information in responses",
   };
 
   const extractGuardrailName = (rawName: string): string =>
     guardrailNameMap[rawName] ?? rawName;
 
-  const guardrailsToShow: GuardrailCheck[] = inputGuardrails.map((rawName) => {
+  // Combine input and output guardrails
+  const allGuardrailNames = [
+    ...(inputGuardrails || []),
+    ...(outputGuardrails || [])
+  ];
+
+  const guardrailsToShow: GuardrailCheck[] = allGuardrailNames.map((rawName) => {
     const existing = guardrails.find((gr) => gr.name === rawName);
     if (existing) {
       return existing;
