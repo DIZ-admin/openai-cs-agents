@@ -21,7 +21,7 @@ The ERNI Gruppe Building Agents system is a multi-agent orchestration platform b
 - **Intelligent Routing** - Automatic handoff between agents based on customer needs
 - **Context Preservation** - Customer information persists across agent transitions
 - **Bilingual Support** - German and English language support
-- **Safety Guardrails** - Input validation and security checks
+- **Safety Guardrails** - Input validation (Relevance, Jailbreak) and output protection (PII)
 
 ### Use Cases
 - Cost estimation for building projects
@@ -827,6 +827,88 @@ async def jailbreak_guardrail(input_text: str) -> GuardrailResult:
 
 **Refusal Message:**
 > "Sorry, I can only answer questions related to building and construction."
+
+---
+
+### 3. PII Guardrail
+
+**Purpose:** Prevents exposure of Personally Identifiable Information (PII) in agent responses.
+
+**Type:** `@output_guardrail`
+
+**Implementation:**
+```python
+@output_guardrail
+async def pii_guardrail(output_text: str) -> GuardrailResult:
+    """
+    Check if the agent's output contains Personally Identifiable Information (PII).
+
+    Prevents exposure of:
+    - Email addresses (except company contact emails)
+    - Phone numbers (except company contact numbers)
+    - Full names in sensitive contexts
+    - Addresses (except company addresses)
+    - Credit card numbers, SSNs, etc.
+    """
+
+    # Pattern-based detection for common PII types
+    pii_patterns = {
+        "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+        "phone": r'\b(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
+        "credit_card": r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b',
+        "ssn": r'\b\d{3}-\d{2}-\d{4}\b',
+    }
+
+    # Company contact information (allowed exceptions)
+    allowed_contacts = [
+        "info@erni-gruppe.ch",
+        "+41 41 787 50 50",
+        "Guggibadstrasse 8, 6288 Schongau"
+    ]
+
+    # Check for PII patterns
+    for pii_type, pattern in pii_patterns.items():
+        matches = re.findall(pattern, output_text)
+        for match in matches:
+            if match not in allowed_contacts:
+                return GuardrailResult(
+                    passed=False,
+                    refusal_message="I cannot share that information. Please contact ERNI Gruppe directly."
+                )
+
+    return GuardrailResult(passed=True)
+```
+
+**Protects Against:**
+- Customer email addresses being exposed
+- Customer phone numbers being shared
+- Personal addresses in responses
+- Financial information (credit cards, bank accounts)
+- Social security numbers or ID numbers
+
+**Allowed Exceptions:**
+- ERNI Gruppe company contact email: `info@erni-gruppe.ch`
+- ERNI Gruppe company phone: `+41 41 787 50 50`
+- ERNI Gruppe company address: `Guggibadstrasse 8, 6288 Schongau`
+- Team member names (public information on website)
+
+**Refusal Message:**
+> "I cannot share that information. Please contact ERNI Gruppe directly."
+
+**Note:** This is an **output guardrail**, meaning it validates agent responses before they are sent to the user, unlike input guardrails which validate user messages.
+
+---
+
+## Guardrail Types Comparison
+
+| Guardrail | Type | Purpose | Validates |
+|-----------|------|---------|-----------|
+| **Relevance Guardrail** | Input | Ensure topic relevance | User messages |
+| **Jailbreak Guardrail** | Input | Prevent prompt injection | User messages |
+| **PII Guardrail** | Output | Protect sensitive data | Agent responses |
+
+**Input Guardrails** run **before** the agent processes the message.
+**Output Guardrails** run **after** the agent generates a response.
 
 ---
 

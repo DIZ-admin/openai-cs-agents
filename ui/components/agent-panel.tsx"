@@ -54,6 +54,7 @@ export function AgentPanel({
         <Guardrails
           guardrails={guardrails}
           inputGuardrails={activeAgent?.input_guardrails ?? []}
+          outputGuardrails={activeAgent?.output_guardrails ?? []}
         />
         <ConversationContext context={context} />
         <RunnerOutput runnerEvents={runnerEvents} />

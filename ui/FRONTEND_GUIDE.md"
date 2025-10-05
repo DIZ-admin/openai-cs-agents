@@ -93,9 +93,25 @@ export async function callChatAPI(message: string, conversationId: string) {
 ### Agent Panel (components/agent-panel.tsx)
 Displays:
 - Available agents (6 ERNI agents)
-- Active guardrails (Relevance, Jailbreak)
+- Active guardrails (Input: Relevance, Jailbreak | Output: PII)
 - Conversation context (customer data, project info)
 - Runner output (agent events, tool calls)
+
+### Guardrails Component (components/guardrails.tsx)
+Displays security and validation checks for agent interactions:
+
+**Input Guardrails** (validate user messages):
+- **Relevance Guardrail** - Ensures messages are related to building/construction
+- **Jailbreak Guardrail** - Detects attempts to bypass system instructions
+
+**Output Guardrails** (validate agent responses):
+- **PII Guardrail** - Prevents exposure of Personally Identifiable Information
+
+Features:
+- Unified card-based display for all guardrails
+- Real-time status badges (Passed/Failed)
+- Color-coded indicators (green for passed, red for failed)
+- Detailed descriptions for each guardrail type
 
 ### Chat Interface (components/chat.tsx)
 Features:
@@ -272,7 +288,7 @@ ui/
 │   ├── chat.tsx             # Chat interface
 │   ├── agents-list.tsx      # Agent cards
 │   ├── conversation-context.tsx  # Context display
-│   ├── guardrails.tsx       # Guardrail checks
+│   ├── guardrails.tsx       # Guardrail checks (input + output)
 │   ├── runner-output.tsx    # Event log
 │   └── ui/                  # Reusable UI components
 │       ├── badge.tsx
