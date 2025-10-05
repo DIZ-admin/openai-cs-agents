@@ -40,7 +40,7 @@ class TestAppointmentBookingAgent:
         )  # relevance and jailbreak
         assert appointment_booking_agent.model == "gpt-4.1-mini"
         assert appointment_booking_agent.model_settings is not None
-        assert appointment_booking_agent.model_settings.temperature == 0.7
+        assert appointment_booking_agent.model_settings.temperature == 0.3
 
     @pytest.mark.asyncio
     @pytest.mark.agents

@@ -45,6 +45,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # HTTP Bearer security scheme
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 # ============================================================================
 # Pydantic Models
@@ -269,13 +270,54 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)
+) -> Optional[User]:
+    """
+    FastAPI dependency to optionally get current authenticated user.
+    Returns None if REQUIRE_AUTH is false or if no credentials provided.
+
+    Args:
+        credentials: Optional HTTP Bearer credentials from request header
+
+    Returns:
+        User object if authenticated, None otherwise
+    """
+    import os
+
+    # If authentication is not required, return None
+    if os.getenv("REQUIRE_AUTH", "false").lower() != "true":
+        return None
+
+    # If no credentials provided, return None
+    if credentials is None:
+        return None
+
+    # Otherwise, validate credentials
+    try:
+        token = credentials.credentials
+        token_data = decode_access_token(token)
+
+        if token_data is None or token_data.username is None:
+            return None
+
+        user = get_user(username=token_data.username)
+
+        if user is None or user.disabled:
+            return None
+
+        return user
+    except Exception:
+        return None
+
+
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     FastAPI dependency to get current active (non-disabled) user.
-    
+
     Args:
         current_user: Current user from get_current_user dependency
-        
+
     Returns:
         User object
         

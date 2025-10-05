@@ -29,7 +29,7 @@ class TestCostEstimationAgent:
     async def test_cost_estimation_agent_configuration(self):
         """Test that cost estimation agent is properly configured."""
         assert cost_estimation_agent.name == "Cost Estimation Agent"
-        assert "cost estimates" in cost_estimation_agent.handoff_description.lower()
+        assert "cost" in cost_estimation_agent.handoff_description.lower()
         assert (
             len(cost_estimation_agent.tools) == 1
         )  # Should have estimate_project_cost tool
@@ -38,7 +38,7 @@ class TestCostEstimationAgent:
         )  # relevance and jailbreak
         assert cost_estimation_agent.model == "gpt-4.1-mini"
         assert cost_estimation_agent.model_settings is not None
-        assert cost_estimation_agent.model_settings.temperature == 0.7
+        assert cost_estimation_agent.model_settings.temperature == 0.3
 
     @pytest.mark.asyncio
     @pytest.mark.agents

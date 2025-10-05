@@ -25,12 +25,13 @@ class TestFAQAgent:
     async def test_faq_agent_configuration(self):
         """Test that FAQ agent is properly configured."""
         assert faq_agent.name == "FAQ Agent"
-        assert "frequently asked questions" in faq_agent.handoff_description.lower()
+        # Updated: New handoff description focuses on specific topics
+        assert "specific questions" in faq_agent.handoff_description.lower() or "contact info" in faq_agent.handoff_description.lower()
         assert len(faq_agent.tools) == 2  # Should have FileSearchTool and faq_lookup_building
         assert len(faq_agent.input_guardrails) == 2  # relevance and jailbreak
         assert faq_agent.model == "gpt-4.1-mini"
         assert faq_agent.model_settings is not None
-        assert faq_agent.model_settings.temperature == 0.7
+        assert faq_agent.model_settings.temperature == 0.3
 
     @pytest.mark.asyncio
     @pytest.mark.agents

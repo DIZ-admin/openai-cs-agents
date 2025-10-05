@@ -69,11 +69,12 @@ services:
     environment:
       # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      
+      OPENAI_VECTOR_STORE_ID: ${OPENAI_VECTOR_STORE_ID}
+
       # Application
-      ENVIRONMENT: production
-      DEBUG: false
-      LOG_LEVEL: INFO
+      ENVIRONMENT: development
+      DEBUG: true
+      LOG_LEVEL: DEBUG
       
       # Database
       DATABASE_URL: postgresql://erni_user:${DB_PASSWORD:-changeme}@postgres:5432/erni_agents

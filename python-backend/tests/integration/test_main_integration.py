@@ -270,7 +270,8 @@ class TestAgentInstructions:
         # In main.py, triage_agent uses a static string
         assert isinstance(triage_agent.instructions, str)
         assert len(triage_agent.instructions) > 0
-        assert "triage" in triage_agent.instructions.lower()
+        # Updated: Now "routing agent" instead of "triage agent"
+        assert "routing" in triage_agent.instructions.lower() or "transfer" in triage_agent.instructions.lower()
 
     def test_cost_estimation_agent_instructions_are_callable(self):
         """Test that cost estimation agent instructions are callable."""

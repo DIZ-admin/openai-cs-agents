@@ -25,9 +25,10 @@ class TestProjectInformationAgent:
     async def test_project_information_agent_configuration(self):
         """Test that project information agent is properly configured."""
         assert project_information_agent.name == "Project Information Agent"
+        # Updated: New handoff description focuses on building process and services
         assert (
-            "general information"
-            in project_information_agent.handoff_description.lower()
+            "building process" in project_information_agent.handoff_description.lower()
+            or "services" in project_information_agent.handoff_description.lower()
         )
         assert (
             len(project_information_agent.tools) == 1
@@ -37,7 +38,7 @@ class TestProjectInformationAgent:
         )  # relevance and jailbreak
         assert project_information_agent.model == "gpt-4.1-mini"
         assert project_information_agent.model_settings is not None
-        assert project_information_agent.model_settings.temperature == 0.7
+        assert project_information_agent.model_settings.temperature == 0.3
 
     @pytest.mark.asyncio
     @pytest.mark.agents

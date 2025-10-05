@@ -1,0 +1,71 @@
+# Root-level .dockerignore for multi-service builds
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Docker files (not needed in build context)
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+**/.ruff_cache/
+**/.mypy_cache/
+
+# Node.js
+**/node_modules/
+**/.next/
+**/build/
+**/dist/
+**/*.tsbuildinfo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
