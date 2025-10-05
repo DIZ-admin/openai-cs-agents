@@ -79,7 +79,6 @@ export interface GuardrailCheck {
   name: string
   input: string
   reasoning: string
-  passed: boolean
+  passed: boolean | null
   timestamp: Date
 }
-

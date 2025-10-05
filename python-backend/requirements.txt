@@ -48,7 +48,7 @@ cachetools==5.5.0
 redis==5.2.1
 
 # Authentication & Security
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.4.0  # Updated from 3.3.0 to fix CVE-2024-33663, CVE-2024-33664
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2  # Pin to compatible version with passlib 1.7.4
 
@@ -57,7 +57,7 @@ prometheus-fastapi-instrumentator==7.0.0
 structlog==24.4.0
 
 # Templating
-Jinja2==3.1.4
+Jinja2==3.1.6  # Updated from 3.1.4 to fix CVE-2024-56326, CVE-2024-56201, CVE-2025-27516
 
 # Testing dependencies
 pytest==8.4.2

@@ -199,6 +199,7 @@
   - [ ] Vulnerability scanning completed
   - [ ] OWASP Top 10 vulnerabilities checked
   - [ ] Security audit completed
+  - [ ] `scripts/preflight_check.py` executed with ✅ result
 
 - [ ] **Performance Testing**
   - [ ] Load testing completed

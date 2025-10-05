@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: erni-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: erni_agents
+      POSTGRES_USER: erni_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erni_user -d erni_agents"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erni-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: erni-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erni-network
+
+  backend:
+    build:
+      context: ./python-backend
+      dockerfile: Dockerfile
+    container_name: erni-backend
+    restart: unless-stopped
+    env_file:
+      - ./python-backend/.env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      REQUIRE_AUTH: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_VECTOR_STORE_ID: ${OPENAI_VECTOR_STORE_ID}
+      DATABASE_URL: postgresql://erni_user:${DB_PASSWORD}@postgres:5432/erni_agents
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - erni-network
+
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${PUBLIC_HOSTNAME}/api
+    container_name: erni-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://${PUBLIC_HOSTNAME}/api
+      NEXT_PUBLIC_ENVIRONMENT: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - erni-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: erni-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - erni-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  erni-network:
+    driver: bridge
