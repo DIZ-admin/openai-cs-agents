@@ -21,6 +21,17 @@ from api import app
 class TestAPIValidation:
     """Test request validation in API endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def mock_runner(self):
+        """Mock Runner for all tests in this class."""
+        with patch("api.Runner") as mock:
+            # Mock successful run result
+            mock_result = MagicMock()
+            mock_result.new_items = []
+            mock_result.to_input_list.return_value = []
+            mock.run = AsyncMock(return_value=mock_result)
+            yield mock
+
     @pytest.fixture
     def client(self):
         """Create test client."""

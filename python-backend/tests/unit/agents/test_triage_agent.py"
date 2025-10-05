@@ -28,7 +28,8 @@ class TestTriageAgent:
     async def test_triage_agent_configuration(self):
         """Test that triage agent is properly configured."""
         assert triage_agent.name == "Triage Agent"
-        assert "Main routing agent" in triage_agent.handoff_description
+        # Updated: New handoff description
+        assert "routing agent" in triage_agent.handoff_description.lower()
         assert len(triage_agent.handoffs) == 5  # Should have 5 handoff targets
         assert len(triage_agent.input_guardrails) == 2  # relevance and jailbreak
         assert len(triage_agent.tools) == 0  # Triage agent has no tools
@@ -66,15 +67,16 @@ class TestTriageAgent:
             instructions = triage_agent.instructions
 
         assert isinstance(instructions, str)
-        assert "triage agent" in instructions.lower()
+        # Updated: Now "routing agent" instead of "triage agent"
+        assert "routing agent" in instructions.lower()
         assert "erni gruppe" in instructions.lower()
         assert "timber construction" in instructions.lower()
 
-        # Check routing instructions
-        assert "general information" in instructions.lower()
-        assert "cost estimates" in instructions.lower()
+        # Check routing instructions - updated keywords
+        assert "faq" in instructions.lower() or "company info" in instructions.lower()
+        assert "cost" in instructions.lower() or "price" in instructions.lower()
         assert "project status" in instructions.lower()
-        assert "consultation" in instructions.lower()
+        assert "booking" in instructions.lower() or "appointment" in instructions.lower()
 
         # Check language support
         assert "german" in instructions.lower() or "english" in instructions.lower()
@@ -102,7 +104,8 @@ class TestTriageAgent:
         """Test that triage agent uses correct model settings."""
         assert triage_agent.model == "gpt-4.1-mini"
         assert triage_agent.model_settings is not None
-        assert triage_agent.model_settings.temperature == 0.7
+        # Updated: Temperature lowered from 0.7 to 0.3 for more deterministic routing
+        assert triage_agent.model_settings.temperature == 0.3
         assert triage_agent.model_settings.max_tokens == 2000
 
     @pytest.mark.asyncio
@@ -160,8 +163,10 @@ class TestTriageAgent:
         else:
             instructions = triage_agent.instructions
 
-        professional_keywords = ["professional", "friendly", "helpful", "welcome"]
-        assert any(keyword in instructions.lower() for keyword in professional_keywords)
+        # Updated: New prompt focuses on routing, not tone
+        # Check for routing-related keywords instead
+        routing_keywords = ["transfer", "routing", "hand off", "specialist"]
+        assert any(keyword in instructions.lower() for keyword in routing_keywords)
 
     @pytest.mark.asyncio
     @pytest.mark.agents
@@ -186,12 +191,13 @@ class TestTriageAgent:
         else:
             instructions = triage_agent.instructions
 
+        # Updated: New routing categories from improved prompt
         routing_categories = [
-            "general information",
-            "cost estimate",
             "project status",
-            "consultation",
-            "specific questions",
+            "faq",  # Changed from "general information"
+            "cost",  # Changed from "cost estimate"
+            "booking",  # Changed from "consultation"
+            "building project",  # Changed from "specific questions"
         ]
 
         for category in routing_categories:

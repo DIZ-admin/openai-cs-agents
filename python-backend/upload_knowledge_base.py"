@@ -89,7 +89,7 @@ def main():
         print()
 
     # List all files in vector store
-    print("📋 Files in vector store:")
+    print("� Files in vector store:")
     try:
         files = client.beta.vector_stores.files.list(vector_store_id=VECTOR_STORE_ID)
         for idx, vs_file in enumerate(files.data, 1):

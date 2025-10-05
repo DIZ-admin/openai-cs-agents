@@ -23,10 +23,10 @@ First staging-ready release of the ERNI Gruppe Building Agents system.
   - File: `api.py` (lines 46-52)
 
 - **OpenAI Model Updates** - Fixed invalid model names
-  - Updated `gpt-5-mini` → `gpt-4o-mini` (main agents)
-  - Updated `gpt-5-nano` → `gpt-4o-mini` (guardrails)
-  - Updated all test files to expect `gpt-4o-mini`
-  - Files: `main.py` (lines 63-65), 6 test files
+  - Updated `gpt-5-mini` → `gpt-4.1-mini` (main agents)
+  - Updated `gpt-5-nano` → `gpt-4.1-mini` (guardrails)
+  - Updated all test files to expect `gpt-4.1-mini`
+  - Files: `main.py` (lines 148-149), 6 test files
 
 - **Rate Limiting** - Protection against API abuse
   - Added `slowapi==0.1.9` dependency

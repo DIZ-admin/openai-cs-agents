@@ -53,16 +53,16 @@ These variables **must** be set for the application to function:
 
 - **Description**: Model name for main agents
 - **Required**: No
-- **Default**: `gpt-4o-mini`
-- **Options**: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`
+- **Default**: `gpt-4.1-mini`
+- **Options**: `gpt-4o`, `gpt-4.1-mini`, `gpt-4-turbo`
 - **Note**: Affects cost and performance
 
 ### `OPENAI_GUARDRAIL_MODEL`
 
 - **Description**: Model name for guardrail agents
 - **Required**: No
-- **Default**: `gpt-4o-mini`
-- **Options**: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`
+- **Default**: `gpt-4.1-mini`
+- **Options**: `gpt-4o`, `gpt-4.1-mini`, `gpt-4-turbo`
 - **Note**: Guardrails use simpler models for cost efficiency
 
 ---
@@ -241,8 +241,8 @@ OPENAI_VECTOR_STORE_ID=vs_your-vector-store-id-here
 # OpenAI
 OPENAI_API_KEY=sk-proj-your-api-key-here
 OPENAI_VECTOR_STORE_ID=vs_your-vector-store-id-here
-OPENAI_MAIN_AGENT_MODEL=gpt-4o-mini
-OPENAI_GUARDRAIL_MODEL=gpt-4o-mini
+OPENAI_MAIN_AGENT_MODEL=gpt-4.1-mini
+OPENAI_GUARDRAIL_MODEL=gpt-4.1-mini
 
 # Agent Configuration
 AGENT_TIMEOUT_SECONDS=30

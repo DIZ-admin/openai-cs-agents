@@ -57,9 +57,13 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --chown=erni:erni . .
 
-# Create directories for logs
+# Create directories for logs and coverage
 RUN mkdir -p /var/log/erni-backend && \
-    chown -R erni:erni /var/log/erni-backend
+    chown -R erni:erni /var/log/erni-backend && \
+    mkdir -p /app/.pytest_cache /app/htmlcov && \
+    chown -R erni:erni /app/.pytest_cache /app/htmlcov && \
+    touch /app/.coverage && \
+    chown erni:erni /app/.coverage
 
 # Switch to non-root user
 USER erni

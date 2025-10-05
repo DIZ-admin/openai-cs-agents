@@ -25,6 +25,18 @@ from main import BuildingProjectContext
 class TestAPIErrorHandling:
     """Test error handling in API endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def mock_runner_default(self):
+        """Mock Runner by default for tests that don't explicitly patch it."""
+        # This will be overridden by @patch decorators on individual tests
+        with patch("api.Runner") as mock:
+            # Mock successful run result
+            mock_result = MagicMock()
+            mock_result.new_items = []
+            mock_result.to_input_list.return_value = []
+            mock.run = AsyncMock(return_value=mock_result)
+            yield mock
+
     @pytest.fixture
     def client(self):
         """Create test client."""

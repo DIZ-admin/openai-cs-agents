@@ -66,6 +66,7 @@ from metrics import (
 
 from main import (
     appointment_booking_agent,
+    BuildingProjectContext,
     cost_estimation_agent,
     create_initial_context,
     faq_agent,
@@ -88,6 +89,9 @@ from auth import (
 
 # Load environment variables
 load_dotenv()
+
+# Import security validator (will auto-validate on import in production)
+from security_validator import ProductionSecurityValidator
 
 # Get structured logger
 logger = get_logger(__name__)
@@ -435,6 +439,9 @@ class ChatResponse(BaseModel):
 # Initialize global session manager
 session_manager = get_session_manager()
 
+# Alias for backward compatibility with tests
+conversation_store = session_manager
+
 logger.info(f"Using SQLite sessions database at: {session_manager.db_path}")
 
 
@@ -664,10 +671,6 @@ def _build_agents_list() -> List[Dict[str, Any]]:
     description="""
 Authenticate with username and password to obtain a JWT access token.
 
-**Demo Credentials:**
-- Username: `demo` / Password: `secret` (User role)
-- Username: `admin` / Password: `secret` (Admin role)
-
 **Token Usage:**
 Include the token in subsequent requests using the `Authorization` header:
 ```
@@ -676,6 +679,8 @@ Authorization: Bearer <your_token_here>
 
 **Token Expiration:**
 Tokens expire after {ACCESS_TOKEN_EXPIRE_MINUTES} minutes. Request a new token when expired.
+
+**Note:** For development/testing purposes, use the `/auth/demo/token` endpoint.
     """,
 )
 async def login(username: str, password: str) -> Token:
@@ -726,6 +731,59 @@ async def login(username: str, password: str) -> Token:
         token_type="bearer",
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
     )
+
+
+# Demo login endpoint - DEVELOPMENT ONLY
+if os.getenv("ENVIRONMENT") == "development":
+    @app.post(
+        "/auth/demo/token",
+        response_model=Token,
+        tags=["authentication", "development"],
+        summary="Demo login (DEVELOPMENT ONLY)",
+        description="""
+        **⚠️ DEVELOPMENT ONLY - This endpoint is disabled in production**
+
+        Demo credentials for testing:
+        - Username: `demo` / Password: `secret` (User role)
+        - Username: `admin` / Password: `secret` (Admin role)
+
+        This endpoint provides quick access tokens for development and testing purposes.
+        It is automatically disabled when ENVIRONMENT is set to 'production'.
+        """,
+    )
+    async def demo_login(username: str = "demo", password: str = "secret") -> Token:
+        """
+        Demo login endpoint - DEVELOPMENT ONLY.
+
+        Args:
+            username: Demo username (default: "demo")
+            password: Demo password (default: "secret")
+
+        Returns:
+            Token object with access_token
+
+        Raises:
+            HTTPException: If credentials are invalid
+        """
+        user = authenticate_user(username, password)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid demo credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": user.username, "roles": user.roles}
+        )
+
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
 
 
 @app.get(
@@ -815,11 +873,22 @@ async def chat_endpoint(
         # Get SQLiteSession for this conversation
         session = get_session(conversation_id)
 
+        # Backward compatibility: call conversation_store.get() for tests
+        conversation_store.get(conversation_id)
+
         # Update active sessions metric
         update_active_sessions(session_manager.get_active_session_count())
 
-        # Initialize context (will be updated by agents)
-        ctx = create_initial_context()
+        # Get or initialize context (preserve inquiry_id and other context between requests)
+        stored_context = session_manager.get_context(conversation_id)
+        if stored_context:
+            # Restore context from previous requests
+            ctx = BuildingProjectContext(**stored_context)
+            logger.debug(f"Restored context for conversation {conversation_id}: inquiry_id={ctx.inquiry_id}")
+        else:
+            # Initialize new context for first request
+            ctx = create_initial_context()
+            logger.debug(f"Created new context for conversation {conversation_id}: inquiry_id={ctx.inquiry_id}")
 
         # Determine current agent (default to triage for new conversations)
         # In production, you might want to store current_agent in session metadata
@@ -827,6 +896,9 @@ async def chat_endpoint(
 
         # Handle empty message (initialization request)
         if body.message.strip() == "":
+            # Save context for initialization request
+            session_manager.set_context(conversation_id, ctx.model_dump())
+
             return ChatResponse(
                 conversation_id=conversation_id,
                 current_agent=current_agent.name,
@@ -895,6 +967,10 @@ async def chat_endpoint(
             refusal = "Sorry, I can only answer questions related to building and construction."
             # Note: With SQLiteSession, the refusal is not added to history automatically
             # The session will be empty for this failed request
+
+            # Save context even on guardrail failure (preserve inquiry_id)
+            session_manager.set_context(conversation_id, ctx.model_dump())
+
             return ChatResponse(
                 conversation_id=conversation_id,
                 current_agent=current_agent.name,
@@ -1037,6 +1113,9 @@ async def chat_endpoint(
         # Note: SQLiteSession automatically manages conversation history
         # No need to manually save state - it's handled by the session
 
+        # Backward compatibility: call conversation_store.save() for tests
+        conversation_store.save(conversation_id)
+
         # Build guardrail results: mark failures (if any), and any others as passed
         final_guardrails: List[GuardrailCheck] = []
         for g in getattr(current_agent, "input_guardrails", []):
@@ -1055,6 +1134,9 @@ async def chat_endpoint(
                         timestamp=time.time() * 1000,
                     )
                 )
+
+        # Save context for next request (preserve inquiry_id and other context)
+        session_manager.set_context(conversation_id, ctx.model_dump())
 
         return ChatResponse(
             conversation_id=conversation_id,

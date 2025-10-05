@@ -29,7 +29,8 @@ class TestProjectStatusAgent:
     async def test_project_status_agent_configuration(self):
         """Test that project status agent is properly configured."""
         assert project_status_agent.name == "Project Status Agent"
-        assert "status updates" in project_status_agent.handoff_description.lower()
+        # Updated: New handoff description includes "project status" or "progress updates"
+        assert "project status" in project_status_agent.handoff_description.lower() or "progress updates" in project_status_agent.handoff_description.lower()
         assert (
             len(project_status_agent.tools) == 1
         )  # Should have get_project_status tool
@@ -38,7 +39,7 @@ class TestProjectStatusAgent:
         )  # relevance and jailbreak
         assert project_status_agent.model == "gpt-4.1-mini"
         assert project_status_agent.model_settings is not None
-        assert project_status_agent.model_settings.temperature == 0.7
+        assert project_status_agent.model_settings.temperature == 0.3
 
     @pytest.mark.asyncio
     @pytest.mark.agents

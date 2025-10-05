@@ -5,11 +5,13 @@ This module provides a centralized wrapper for managing agent conversation sessi
 using SQLiteSession from the OpenAI Agents SDK.
 """
 
+import json
 import logging
 import os
 from pathlib import Path
 from typing import Dict, Optional
 
+import redis
 from agents import SQLiteSession
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ class AgentSessionManager:
         self,
         db_path: Optional[str] = None,
         auto_create_db: bool = True,
+        redis_url: Optional[str] = None,
     ):
         """
         Initialize the session manager.
@@ -49,6 +52,8 @@ class AgentSessionManager:
                     variable SESSIONS_DB_PATH or defaults to "data/conversations.db"
             auto_create_db: Whether to automatically create database directory
                            if it doesn't exist
+            redis_url: Redis connection URL. If None, uses environment variable
+                      REDIS_URL or defaults to "redis://localhost:6379/0"
         """
         # Determine database path
         if db_path is None:
@@ -63,6 +68,35 @@ class AgentSessionManager:
 
         # Cache for active sessions (optional optimization)
         self._sessions: Dict[str, SQLiteSession] = {}
+
+        # Initialize Redis client for context storage (shared across workers)
+        if redis_url is None:
+            redis_url = os.getenv("REDIS_URL")
+
+        if redis_url:
+            self.redis_client = redis.from_url(redis_url, decode_responses=True)
+        else:
+            # Fallback to individual environment variables
+            redis_host = os.getenv("REDIS_HOST", "localhost")
+            redis_port = int(os.getenv("REDIS_PORT", "6379"))
+            redis_password = os.getenv("REDIS_PASSWORD")
+            redis_db = int(os.getenv("REDIS_DB", "0"))
+
+            self.redis_client = redis.Redis(
+                host=redis_host,
+                port=redis_port,
+                password=redis_password,
+                db=redis_db,
+                decode_responses=True,  # Automatically decode bytes to strings
+            )
+
+        # Test Redis connection
+        try:
+            self.redis_client.ping()
+            logger.info("Redis connection established for context storage")
+        except redis.ConnectionError as e:
+            logger.warning(f"Redis connection failed: {e}. Context will not persist across workers.")
+            self.redis_client = None
 
         logger.info(f"AgentSessionManager initialized with database: {self.db_path}")
 
@@ -198,6 +232,39 @@ class AgentSessionManager:
         """
         return len(self._sessions)
 
+    # Backward compatibility methods for tests
+    def get(self, conversation_id: str) -> Optional[Dict]:
+        """
+        Get conversation state (backward compatibility with tests).
+
+        This method exists for backward compatibility with existing tests
+        that expect a conversation_store.get() interface.
+
+        Args:
+            conversation_id: Conversation identifier
+
+        Returns:
+            None (SQLiteSession manages state internally)
+        """
+        # For backward compatibility, return None
+        # SQLiteSession manages state internally
+        return None
+
+    def save(self, conversation_id: str, state: Optional[Dict] = None) -> None:
+        """
+        Save conversation state (backward compatibility with tests).
+
+        This method exists for backward compatibility with existing tests
+        that expect a conversation_store.save() interface.
+
+        Args:
+            conversation_id: Conversation identifier
+            state: Conversation state (ignored, SQLiteSession manages state)
+        """
+        # For backward compatibility, do nothing
+        # SQLiteSession automatically persists state
+        pass
+
     def get_active_conversation_ids(self) -> list[str]:
         """
         Get list of all cached conversation IDs.
@@ -223,6 +290,67 @@ class AgentSessionManager:
             >>> manager.clear_cache()
         """
         self.close_all_sessions()
+
+    def get_context(self, conversation_id: str) -> Optional[Dict]:
+        """
+        Get stored context for a conversation from Redis.
+
+        Falls back to in-memory storage if Redis is unavailable.
+
+        Args:
+            conversation_id: Conversation identifier
+
+        Returns:
+            Stored context dictionary or None if not found
+        """
+        if not conversation_id:
+            return None
+
+        # Try Redis first (shared across workers)
+        if self.redis_client:
+            try:
+                redis_key = f"context:{conversation_id}"
+                context_json = self.redis_client.get(redis_key)
+                if context_json:
+                    context = json.loads(context_json)
+                    logger.debug(f"Retrieved context from Redis for conversation: {conversation_id}")
+                    return context
+            except (redis.ConnectionError, redis.TimeoutError, json.JSONDecodeError) as e:
+                logger.warning(f"Failed to retrieve context from Redis: {e}")
+
+        # Fallback to in-memory storage (worker-local, not recommended for production)
+        return self._contexts.get(conversation_id) if hasattr(self, '_contexts') else None
+
+    def set_context(self, conversation_id: str, context: Dict, ttl_seconds: int = 86400) -> None:
+        """
+        Store context for a conversation in Redis.
+
+        Falls back to in-memory storage if Redis is unavailable.
+
+        Args:
+            conversation_id: Conversation identifier
+            context: Context dictionary to store
+            ttl_seconds: Time-to-live in seconds (default: 24 hours)
+        """
+        if not conversation_id:
+            return
+
+        # Try Redis first (shared across workers)
+        if self.redis_client:
+            try:
+                redis_key = f"context:{conversation_id}"
+                context_json = json.dumps(context)
+                self.redis_client.setex(redis_key, ttl_seconds, context_json)
+                logger.debug(f"Stored context in Redis for conversation: {conversation_id} (TTL: {ttl_seconds}s)")
+                return
+            except (redis.ConnectionError, redis.TimeoutError, TypeError) as e:
+                logger.warning(f"Failed to store context in Redis: {e}. Falling back to in-memory storage.")
+
+        # Fallback to in-memory storage (worker-local, not recommended for production)
+        if not hasattr(self, '_contexts'):
+            self._contexts = {}
+        self._contexts[conversation_id] = context
+        logger.debug(f"Stored context in memory for conversation: {conversation_id}")
 
     def __repr__(self) -> str:
         """String representation of the session manager."""
