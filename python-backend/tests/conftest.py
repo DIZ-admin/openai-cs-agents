@@ -3,6 +3,17 @@ Pytest configuration and shared fixtures for ERNI Gruppe Building Agents tests.
 """
 
 import os
+
+# Set environment variables BEFORE importing any application modules
+# This ensures rate limiting is disabled during tests
+# OPENAI_API_KEY should be set in environment or .env file
+if "OPENAI_API_KEY" not in os.environ:
+    # Use a test key if not set (will fail for real API calls)
+    os.environ["OPENAI_API_KEY"] = "test-api-key"
+os.environ["ENVIRONMENT"] = "test"
+os.environ["DEBUG"] = "true"
+os.environ["DISABLE_RATE_LIMIT"] = "true"
+
 from typing import Dict, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -27,14 +38,7 @@ from api import app
 # ============================================================================
 # Environment Setup
 # ============================================================================
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_environment():
-    """Set up test environment variables."""
-    os.environ["OPENAI_API_KEY"] = "test-api-key"
-    os.environ["ENVIRONMENT"] = "test"
-    os.environ["DEBUG"] = "true"
+# Note: Environment variables are set at the top of this file before imports
 
 
 # ============================================================================

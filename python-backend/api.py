@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 from uuid import uuid4
 from pathlib import Path
 
@@ -32,7 +32,7 @@ from agents import (
     ToolCallOutputItem,
 )
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -80,6 +80,7 @@ from auth import (
     create_access_token,
     get_current_user,
     get_current_active_user,
+    get_optional_current_user,
     Token,
     User,
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -171,6 +172,12 @@ Website: https://www.erni-gruppe.ch
 )
 
 # Rate limiting configuration
+# Use very high limit if DISABLE_RATE_LIMIT is set (for testing)
+if os.getenv("DISABLE_RATE_LIMIT", "false").lower() == "true":
+    RATE_LIMIT = "100000/minute"
+else:
+    RATE_LIMIT = os.getenv("RATE_LIMIT", "10/minute")
+
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -561,6 +568,10 @@ async def run_agent_with_retry(
             detail="AI service temporarily unavailable. Please try again later.",
         )
 
+    except InputGuardrailTripwireTriggered:
+        # Guardrail triggered - re-raise to be handled by caller
+        raise
+
     except Exception as e:
         # Unexpected error
         logger.error(f"Unexpected error in agent execution: {e}", exc_info=True)
@@ -764,11 +775,11 @@ conversation context across multiple messages.
         504: {"description": "Request timeout (>30 seconds)"},
     }
 )
-@limiter.limit("10/minute")
+@limiter.limit(RATE_LIMIT)
 async def chat_endpoint(
+    body: ChatRequest,
     request: Request,
-    req: ChatRequest,
-    current_user: Optional[User] = Depends(get_current_user) if os.getenv("REQUIRE_AUTH", "false").lower() == "true" else None
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """
     Main chat endpoint for agent orchestration.
@@ -789,8 +800,8 @@ async def chat_endpoint(
     try:
         # Generate or use existing conversation ID
         # If conversation_id is provided and not empty, use it; otherwise generate new
-        if req.conversation_id and req.conversation_id.strip():
-            conversation_id = req.conversation_id
+        if body.conversation_id and body.conversation_id.strip():
+            conversation_id = body.conversation_id
         else:
             conversation_id = uuid4().hex
 
@@ -798,7 +809,7 @@ async def chat_endpoint(
         bind_conversation_context(conversation_id)
 
         # Record conversation started (for new conversations)
-        if not req.conversation_id or not req.conversation_id.strip():
+        if not body.conversation_id or not body.conversation_id.strip():
             record_conversation_started()
 
         # Get SQLiteSession for this conversation
@@ -815,7 +826,7 @@ async def chat_endpoint(
         current_agent = triage_agent
 
         # Handle empty message (initialization request)
-        if req.message.strip() == "":
+        if body.message.strip() == "":
             return ChatResponse(
                 conversation_id=conversation_id,
                 current_agent=current_agent.name,
@@ -841,7 +852,7 @@ async def chat_endpoint(
             # Run agent with timeout and retry logic
             result = await run_agent_with_retry(
                 agent=current_agent,
-                input_data=req.message,
+                input_data=body.message,
                 context=ctx,
                 session=session
             )
@@ -864,7 +875,7 @@ async def chat_endpoint(
             failed = e.guardrail_result.guardrail
             gr_output = e.guardrail_result.output.output_info
             gr_reasoning = getattr(gr_output, "reasoning", "")
-            gr_input = req.message
+            gr_input = body.message
             gr_timestamp = time.time() * 1000
             for g in current_agent.input_guardrails:
                 guardrail_name = _get_guardrail_name(g)
@@ -895,13 +906,13 @@ async def chat_endpoint(
             )
 
         messages: List[MessageResponse] = []
-        events: List[AgentEvent] = []
+        agent_events: List[AgentEvent] = []
 
         for item in result.new_items:
             if isinstance(item, MessageOutputItem):
                 text = ItemHelpers.text_message_output(item)
                 messages.append(MessageResponse(content=text, agent=item.agent.name))
-                events.append(
+                agent_events.append(
                     AgentEvent(
                         id=uuid4().hex,
                         type="message",
@@ -923,7 +934,7 @@ async def chat_endpoint(
                 )
 
                 # Record the handoff event
-                events.append(
+                agent_events.append(
                     AgentEvent(
                         id=uuid4().hex,
                         type="handoff",
@@ -957,7 +968,7 @@ async def chat_endpoint(
                         if idx < len(cl) and cl[idx].cell_contents:
                             cb = cl[idx].cell_contents
                             cb_name = getattr(cb, "__name__", repr(cb))
-                            events.append(
+                            agent_events.append(
                                 AgentEvent(
                                     id=uuid4().hex,
                                     type="tool_call",
@@ -977,7 +988,7 @@ async def chat_endpoint(
                         tool_args = json.loads(raw_args)
                     except Exception:
                         pass
-                events.append(
+                agent_events.append(
                     AgentEvent(
                         id=uuid4().hex,
                         type="tool_call",
@@ -995,7 +1006,7 @@ async def chat_endpoint(
                 #         )
                 #     )
             elif isinstance(item, ToolCallOutputItem):
-                events.append(
+                agent_events.append(
                     AgentEvent(
                         id=uuid4().hex,
                         type="tool_output",
@@ -1013,7 +1024,7 @@ async def chat_endpoint(
             if old_context.get(k) != new_context[k]
         }
         if changes:
-            events.append(
+            agent_events.append(
                 AgentEvent(
                     id=uuid4().hex,
                     type="context_update",
@@ -1038,7 +1049,7 @@ async def chat_endpoint(
                     GuardrailCheck(
                         id=uuid4().hex,
                         name=name,
-                        input=req.message,
+                        input=body.message,
                         reasoning="",
                         passed=True,
                         timestamp=time.time() * 1000,
@@ -1049,7 +1060,7 @@ async def chat_endpoint(
             conversation_id=conversation_id,
             current_agent=current_agent.name,
             messages=messages,
-            events=events,
+            events=agent_events,
             context=ctx.model_dump(),
             agents=_build_agents_list(),
             guardrails=final_guardrails,
