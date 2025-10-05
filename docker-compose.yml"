@@ -84,6 +84,7 @@ services:
       
       # Security
       SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-please-change-this-secret-key-in-production}
       ALLOWED_HOSTS: localhost,127.0.0.1,backend
       CORS_ORIGINS: http://localhost:3000,http://frontend:3000
       
@@ -219,4 +220,3 @@ networks:
 #    - Redis: localhost:6379
 #
 # ============================================================================
-

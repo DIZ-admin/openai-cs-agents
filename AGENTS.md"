@@ -642,15 +642,21 @@ async def book_consultation(
     context: RunContextWrapper[BuildingProjectContext],
     specialist_type: str,
     date: str,
-    time: str
+    time: str,
+    customer_name: str,
+    customer_email: str,
+    customer_phone: str,
 ) -> str
 ```
 
 **Parameters:**
 - `context`: Agent context wrapper
-- `specialist_type` (str): Type of specialist
+- `specialist_type` (str): Type of specialist (Architekt, Holzbau-Ingenieur, Bauleiter)
 - `date` (str): Consultation date
 - `time` (str): Consultation time
+- `customer_name` (str): Customer's full name
+- `customer_email` (str): Customer's email address
+- `customer_phone` (str): Customer's phone number (international format)
 
 **Returns:**
 - `str`: Confirmation message with booking details
@@ -658,6 +664,9 @@ async def book_consultation(
 **Context Updates:**
 - `consultation_booked` = `True`
 - `specialist_assigned`
+- `customer_name`
+- `customer_email`
+- `customer_phone`
 
 **Example Usage:**
 ```python
@@ -665,7 +674,10 @@ result = await book_consultation(
     context=ctx,
     specialist_type="Architekt",
     date="Tuesday, May 15",
-    time="14:00"
+    time="14:00",
+    customer_name="John Smith",
+    customer_email="john.smith@example.com",
+    customer_phone="+41 79 123 45 67",
 )
 # Returns: "✅ Consultation Booked!\n\nDetails:\n- Specialist: Architekt..."
 ```
@@ -1377,12 +1389,10 @@ async def some_tool(
 - **OpenAI Agents SDK Documentation:** https://openai.github.io/openai-agents-python/
 - **ERNI Gruppe Website:** https://www.erni-gruppe.ch/
 - **Project Repository:** See README.md for setup instructions
-- **Adaptation Documentation:** See ERNI_ADAPTATION.md for business context
+- **Adaptation Overview:** Business requirements are summarised in the project planning notes (`planning.md`).
 
 ---
 
 ## License
 
 This documentation is part of the ERNI Gruppe Building Agents project, adapted from the OpenAI Customer Service Agents Demo. See LICENSE file for details.
-
-

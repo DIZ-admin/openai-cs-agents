@@ -177,10 +177,37 @@ Website: https://www.erni-gruppe.ch
 
 # Rate limiting configuration
 # Use very high limit if DISABLE_RATE_LIMIT is set (for testing)
-if os.getenv("DISABLE_RATE_LIMIT", "false").lower() == "true":
-    RATE_LIMIT = "100000/minute"
-else:
-    RATE_LIMIT = os.getenv("RATE_LIMIT", "10/minute")
+def _compose_rate_limit() -> str:
+    """Build SlowAPI limit string from environment variables."""
+
+    if os.getenv("DISABLE_RATE_LIMIT", "false").lower() == "true":
+        return "100000/minute"
+
+    direct_limit = os.getenv("RATE_LIMIT")
+    if direct_limit:
+        return direct_limit
+
+    parts: list[str] = []
+
+    per_minute = os.getenv("RATE_LIMIT_PER_MINUTE")
+    if per_minute:
+        parts.append(f"{per_minute}/minute")
+
+    per_hour = os.getenv("RATE_LIMIT_PER_HOUR")
+    if per_hour:
+        parts.append(f"{per_hour}/hour")
+
+    per_day = os.getenv("RATE_LIMIT_PER_DAY")
+    if per_day:
+        parts.append(f"{per_day}/day")
+
+    if parts:
+        return ";".join(parts)
+
+    return "10/minute"
+
+
+RATE_LIMIT = _compose_rate_limit()
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter

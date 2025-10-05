@@ -65,7 +65,7 @@ class ProductionSecurityValidator:
         
         required_secrets = [
             ("OPENAI_API_KEY", "OpenAI API key"),
-            ("SECRET_KEY", "JWT secret key"),
+            ("SECRET_KEY", "Application secret key"),
             ("DB_PASSWORD", "Database password"),
             ("REDIS_PASSWORD", "Redis password"),
         ]
@@ -80,6 +80,13 @@ class ProductionSecurityValidator:
                     f"{description} ({env_var}) uses forbidden default value: '{value}'"
                 )
         
+        # Ensure JWT secret available (explicit or via SECRET_KEY fallback)
+        jwt_secret = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY")
+        if not jwt_secret:
+            errors.append("JWT secret key (JWT_SECRET_KEY) is not set and no SECRET_KEY fallback provided")
+        elif jwt_secret.lower() in cls.FORBIDDEN_VALUES:
+            errors.append("JWT secret key uses forbidden default value")
+
         return errors
     
     @classmethod
@@ -89,12 +96,20 @@ class ProductionSecurityValidator:
         
         # Validate SECRET_KEY length
         secret_key = os.getenv("SECRET_KEY", "")
-        if len(secret_key) < 32:
+        if secret_key and len(secret_key) < 32:
             errors.append(
                 f"SECRET_KEY is too short ({len(secret_key)} chars). "
                 f"Minimum 32 characters required for production."
             )
-        
+
+        # Validate JWT_SECRET_KEY length (falls back to SECRET_KEY if unset)
+        jwt_secret = os.getenv("JWT_SECRET_KEY") or secret_key
+        if jwt_secret and len(jwt_secret) < 32:
+            errors.append(
+                f"JWT_SECRET_KEY is too short ({len(jwt_secret)} chars). "
+                f"Minimum 32 characters required for production."
+            )
+
         # Validate DB_PASSWORD length
         db_password = os.getenv("DB_PASSWORD", "")
         if len(db_password) < 16:
@@ -140,4 +155,3 @@ class ProductionSecurityValidator:
 # Auto-validate on import in production
 if __name__ != "__main__":
     ProductionSecurityValidator.validate_all()
-

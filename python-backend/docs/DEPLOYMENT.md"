@@ -1213,7 +1213,7 @@ SELECT COUNT(*) FROM messages;
 - **FastAPI Documentation:** https://fastapi.tiangolo.com/
 - **Next.js Documentation:** https://nextjs.org/docs
 - **ERNI Gruppe Website:** https://www.erni-gruppe.ch/
-- **Project Documentation:** See [AGENTS.md](AGENTS.md) and [ERNI_ADAPTATION.md](ERNI_ADAPTATION.md)
+- **Project Documentation:** See [AGENTS.md](../../AGENTS.md) and [planning.md](../../planning.md)
 
 ---
 

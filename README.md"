@@ -51,11 +51,10 @@ An intelligent multi-agent system built for **ERNI Gruppe**, a leading Swiss tim
 | Document | Description |
 |----------|-------------|
 | **[AGENTS.md](AGENTS.md)** | Complete technical documentation of the multi-agent system |
-| **[DEPLOYMENT.md](DEPLOYMENT.md)** | Production deployment guide with SSL, monitoring, security |
-| **[STAGING_DEPLOYMENT.md](python-backend/STAGING_DEPLOYMENT.md)** | **NEW:** Staging deployment guide and testing procedures |
+| **[DEPLOYMENT.md](python-backend/docs/DEPLOYMENT.md)** | Production deployment guide with SSL, monitoring, security |
+| **[STAGING_DEPLOYMENT.md](python-backend/docs/STAGING_DEPLOYMENT.md)** | **NEW:** Staging deployment guide and testing procedures |
 | **[CHANGELOG.md](python-backend/CHANGELOG.md)** | **NEW:** Version history and release notes |
-| **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)** | Pre-deployment and post-deployment checklist |
-| **[ERNI_ADAPTATION.md](ERNI_ADAPTATION.md)** | Business context and adaptation overview |
+| **[PRODUCTION_CHECKLIST.md](python-backend/docs/PRODUCTION_CHECKLIST.md)** | Pre-deployment and post-deployment checklist |
 
 ---
 
