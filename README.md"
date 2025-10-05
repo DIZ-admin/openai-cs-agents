@@ -55,6 +55,8 @@ An intelligent multi-agent system built for **ERNI Gruppe**, a leading Swiss tim
 | **[STAGING_DEPLOYMENT.md](python-backend/docs/STAGING_DEPLOYMENT.md)** | **NEW:** Staging deployment guide and testing procedures |
 | **[CHANGELOG.md](python-backend/CHANGELOG.md)** | **NEW:** Version history and release notes |
 | **[PRODUCTION_CHECKLIST.md](python-backend/docs/PRODUCTION_CHECKLIST.md)** | Pre-deployment and post-deployment checklist |
+| **[RUNBOOK.md](RUNBOOK.md)** | Day-2 operations, incident response, deployment playbooks |
+| **[LOAD_TESTING_AND_SECURITY_AUDIT.md](python-backend/LOAD_TESTING_AND_SECURITY_AUDIT.md)** | Load & security testing instructions |
 | **[ERNI_ADAPTATION.md](python-backend/docs/ERNI_ADAPTATION.md)** | Business adaptation overview |
 
 ---
@@ -158,7 +160,7 @@ Open http://localhost:3000 and try:
 # 1. Configure environment variables in python-backend/.env
 cd python-backend
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY, OPENAI_VECTOR_STORE_ID, SECRET_KEY
+# Edit .env and add your OPENAI_API_KEY, OPENAI_VECTOR_STORE_ID, SECRET_KEY, JWT_SECRET_KEY, DB_PASSWORD, REDIS_PASSWORD
 
 # 2. Return to project root and start all services
 cd ..
@@ -174,12 +176,21 @@ Services will be available at:
 
 ### Production Deployment
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for comprehensive production deployment instructions including:
-- SSL/HTTPS setup
-- Database configuration
-- Monitoring and logging
-- Security best practices
-- Cloud deployment options
+1. Настройте `python-backend/.env` и заполните все секреты.
+2. Запустите проверку окружения:
+   ```bash
+   python scripts/preflight_check.py
+   ```
+3. Убедитесь, что SSL-сертификаты находятся в `nginx/ssl` и задан `PUBLIC_HOSTNAME`.
+4. Разверните продакшн-стек:
+   ```bash
+   docker-compose -f docker-compose.prod.yml --env-file python-backend/.env up -d --build
+   ```
+5. Проверьте:
+   - `https://<PUBLIC_HOSTNAME>/api/health`
+   - `docker-compose -f docker-compose.prod.yml logs -f`
+
+Расширенные инструкции по архитектуре, мониторингу, логированию и безопасности см. в **[python-backend/docs/DEPLOYMENT.md](python-backend/docs/DEPLOYMENT.md)**.
 
 ---
 
@@ -558,6 +569,7 @@ Tests run automatically via GitHub Actions on:
 - Multiple Python versions (3.10, 3.11, 3.12)
 - Security scanning with bandit and safety
 - Docker build testing
+- Additional CI jobs now run `pip-audit`, `scripts/preflight_check.py`, API security tests (`python-backend/security_audit/api_security_tests.py`) и baseline load test (Locust). Убедитесь, что следующие секреты заданы в GitHub Actions: `OPENAI_API_KEY_TEST`, `OPENAI_VECTOR_STORE_ID_TEST`, `SECRET_KEY_PROD`, `JWT_SECRET_KEY_PROD`, `DB_PASSWORD_PROD`, `REDIS_PASSWORD_PROD`.
 
 See `.github/workflows/test.yml` for the complete CI/CD pipeline.
 

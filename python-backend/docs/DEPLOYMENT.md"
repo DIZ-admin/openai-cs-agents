@@ -417,10 +417,14 @@ pm2 startup
 
 ### Option 2: Docker Deployment
 
-See `docker-compose.yml` and `Dockerfile` in the repository.
+For local/staging use `docker-compose.yml`. For production use `docker-compose.prod.yml`, который включает Nginx, HTTPS и обязательные секреты.
 
 ```bash
+# Development / staging
 docker-compose up -d --build
+
+# Production
+docker-compose -f docker-compose.prod.yml --env-file python-backend/.env up -d --build
 ```
 
 ### Option 3: Cloud Platforms

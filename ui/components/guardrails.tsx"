@@ -47,7 +47,7 @@ export function Guardrails({ guardrails, inputGuardrails, outputGuardrails }: Gu
       name: rawName,
       input: "",
       reasoning: "",
-      passed: null as any, // null means not executed yet
+      passed: null, // null means not executed yet
       timestamp: new Date(),
     };
   });

@@ -833,6 +833,38 @@ curl http://localhost:3000
 
 ---
 
+## 🔐 Key Rotation Policy
+
+To maintain a strong security posture, rotate all sensitive credentials at least every 90 days and immediately after any suspected compromise.
+
+**Scope:**
+- `OPENAI_API_KEY`, `OPENAI_VECTOR_STORE_ID`
+- `SECRET_KEY`, `JWT_SECRET_KEY`
+- `DB_PASSWORD` (PostgreSQL) and `REDIS_PASSWORD`
+- SSL/TLS certificates stored in `nginx/ssl`
+
+**Rotation Checklist:**
+1. Generate new values (`openssl rand -hex 32` or cloud secret manager).
+2. Update centralized secret storage (AWS Secrets Manager / Azure Key Vault / HashiCorp Vault).
+3. Update GitHub Actions secrets (`Settings → Secrets and variables → Actions`).
+4. Update `python-backend/.env` (or secret manager templates) on all runtime hosts.
+5. Run `python scripts/preflight_check.py` to validate configuration.
+6. Redeploy via `docker-compose.prod.yml` (rolling restart recommended).
+7. Verify health endpoints and review logs for authentication errors.
+8. Revoke previous credentials and document the rotation (date, operator, reason).
+
+**Emergency Rotation:**
+- Trigger immediately when compromise is suspected.
+- Notify on-call engineer and security lead.
+- Follow the checklist above, then create an incident ticket and capture a postmortem.
+
+**Automation Recommendations:**
+- Store last-rotation timestamps in an operations dashboard.
+- Schedule quarterly reminders (calendar/Jira recurring tasks).
+- Evaluate automatic rotation options provided by your secret manager.
+
+---
+
 ## 🚀 Deployment Procedures
 
 ### Staging Deployment
@@ -903,6 +935,9 @@ Expected duration: 15 minutes
 ```bash
 # Pull latest code
 git pull origin main
+
+# Validate secrets
+python scripts/preflight_check.py
 
 # Build images
 docker-compose -f docker-compose.prod.yml build
@@ -1054,4 +1089,3 @@ curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
 **Last Updated:** October 5, 2025  
 **Version:** 1.0.0  
 **Maintained by:** ERNI Gruppe DevOps Team
-
