@@ -55,6 +55,7 @@ An intelligent multi-agent system built for **ERNI Gruppe**, a leading Swiss tim
 | **[STAGING_DEPLOYMENT.md](python-backend/docs/STAGING_DEPLOYMENT.md)** | **NEW:** Staging deployment guide and testing procedures |
 | **[CHANGELOG.md](python-backend/CHANGELOG.md)** | **NEW:** Version history and release notes |
 | **[PRODUCTION_CHECKLIST.md](python-backend/docs/PRODUCTION_CHECKLIST.md)** | Pre-deployment and post-deployment checklist |
+| **[ERNI_ADAPTATION.md](python-backend/docs/ERNI_ADAPTATION.md)** | Business adaptation overview |
 
 ---
 
@@ -75,6 +76,8 @@ cd openai-cs-agents
 
 ### 2. Set Up Environment Variables
 
+**IMPORTANT:** The `.env` file must be located in the `python-backend/` directory, not in the project root.
+
 Create a `.env` file in the `python-backend` directory:
 
 ```bash
@@ -82,13 +85,20 @@ cd python-backend
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+Edit `python-backend/.env` and add your secrets:
 
 ```env
 OPENAI_API_KEY=sk-proj-your-api-key-here
+OPENAI_VECTOR_STORE_ID=vs_your-vector-store-id-here
 ENVIRONMENT=development
 DEBUG=true
+SECRET_KEY=your-secret-key-here
+JWT_SECRET_KEY=your-jwt-secret-key-here
+DB_PASSWORD=your-postgres-password
+REDIS_PASSWORD=your-redis-password
 ```
+
+**Note:** Never commit the `.env` file to version control. It's already in `.gitignore`.
 
 ### 3. Install Dependencies
 
@@ -145,14 +155,17 @@ Open http://localhost:3000 and try:
 ### Quick Start with Docker Compose
 
 ```bash
-# Copy environment file
-cp python-backend/.env.example python-backend/.env
+# 1. Configure environment variables in python-backend/.env
+cd python-backend
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY, OPENAI_VECTOR_STORE_ID, SECRET_KEY
 
-# Edit .env and add your OPENAI_API_KEY
-
-# Start all services
+# 2. Return to project root and start all services
+cd ..
 docker-compose up -d
 ```
+
+**Note:** Docker Compose automatically loads environment variables from `python-backend/.env`.
 
 Services will be available at:
 - **Frontend:** http://localhost:3000
@@ -570,7 +583,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 For questions, issues, or feature requests:
 
 - **GitHub Issues:** [Create an issue](https://github.com/DIZ-admin/openai-cs-agents/issues)
-- **Documentation:** [AGENTS.md](AGENTS.md), [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Documentation:** [AGENTS.md](AGENTS.md), [DEPLOYMENT.md](python-backend/docs/DEPLOYMENT.md)
 - **Email:** support@example.com (replace with actual support email)
 
 ---

@@ -3,6 +3,10 @@
 # ============================================================================
 # Production-like environment for local development and testing
 # ============================================================================
+#
+# IMPORTANT: Environment variables are loaded from python-backend/.env
+# Make sure to configure python-backend/.env before running docker-compose
+# ============================================================================
 
 version: '3.8'
 
@@ -61,6 +65,8 @@ services:
       dockerfile: Dockerfile
     container_name: erni-backend
     restart: unless-stopped
+    env_file:
+      - ./python-backend/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,10 +83,10 @@ services:
       LOG_LEVEL: DEBUG
       
       # Database
-      DATABASE_URL: postgresql://erni_user:${DB_PASSWORD:-changeme}@postgres:5432/erni_agents
+      DATABASE_URL: postgresql://erni_user:${DB_PASSWORD}@postgres:5432/erni_agents
       
       # Redis
-      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       
       # Security
       SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
