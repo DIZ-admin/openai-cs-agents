@@ -1,0 +1,100 @@
+#!/bin/bash
+# Cleanup duplicate files with ' 2' suffix from Git repository
+# This script removes all duplicate files that are identical to their originals
+# or replaces originals with newer duplicates when appropriate
+
+set -e  # Exit on error
+
+echo "🧹 Starting duplicate files cleanup..."
+echo ""
+
+# Counter variables
+DELETED=0
+REPLACED=0
+SKIPPED=0
+
+# Get list of all ' 2' files tracked by Git
+DUPLICATES=$(git ls-files | grep " 2\." || true)
+
+if [ -z "$DUPLICATES" ]; then
+    echo "✅ No duplicate files found!"
+    exit 0
+fi
+
+echo "Found $(echo "$DUPLICATES" | wc -l | tr -d ' ') duplicate files"
+echo ""
+
+# Process each duplicate file
+while IFS= read -r DUP_FILE; do
+    # Skip if file doesn't exist
+    if [ ! -f "$DUP_FILE" ]; then
+        echo "⏭️  Skipping $DUP_FILE (doesn't exist)"
+        ((SKIPPED++))
+        continue
+    fi
+    
+    # Get original file path
+    ORIG_FILE=$(echo "$DUP_FILE" | sed 's/ 2\././')
+    
+    # Special case: files ending with ' 2' (no extension)
+    if [[ "$DUP_FILE" == *" 2" ]] && [[ "$DUP_FILE" != *"."* ]]; then
+        ORIG_FILE="${DUP_FILE% 2}"
+    fi
+    
+    echo "Processing: $DUP_FILE"
+    
+    # Case 1: Original doesn't exist - rename duplicate to original
+    if [ ! -f "$ORIG_FILE" ]; then
+        echo "  → Original doesn't exist, renaming duplicate"
+        git mv "$DUP_FILE" "$ORIG_FILE"
+        ((REPLACED++))
+        continue
+    fi
+    
+    # Case 2: Files are identical - delete duplicate
+    if cmp -s "$ORIG_FILE" "$DUP_FILE"; then
+        echo "  → Files are identical, deleting duplicate"
+        git rm "$DUP_FILE"
+        ((DELETED++))
+        continue
+    fi
+    
+    # Case 3: Files are different - check which is newer
+    ORIG_TIME=$(stat -f %m "$ORIG_FILE" 2>/dev/null || stat -c %Y "$ORIG_FILE" 2>/dev/null)
+    DUP_TIME=$(stat -f %m "$DUP_FILE" 2>/dev/null || stat -c %Y "$DUP_FILE" 2>/dev/null)
+    
+    if [ "$DUP_TIME" -gt "$ORIG_TIME" ]; then
+        echo "  → Duplicate is newer, replacing original"
+        # Check if this is a coverage file (should not be in Git)
+        if [[ "$DUP_FILE" == *".coverage"* ]]; then
+            echo "  → Coverage file detected, removing both from Git"
+            git rm "$ORIG_FILE" "$DUP_FILE" 2>/dev/null || true
+            ((DELETED+=2))
+        else
+            git mv -f "$DUP_FILE" "$ORIG_FILE"
+            ((REPLACED++))
+        fi
+    else
+        echo "  → Original is newer or same age, deleting duplicate"
+        git rm "$DUP_FILE"
+        ((DELETED++))
+    fi
+    
+done <<< "$DUPLICATES"
+
+echo ""
+echo "=" * 80
+echo "🎉 Cleanup completed!"
+echo "=" * 80
+echo "Deleted:  $DELETED files"
+echo "Replaced: $REPLACED files"
+echo "Skipped:  $SKIPPED files"
+echo "Total:    $((DELETED + REPLACED + SKIPPED)) files processed"
+echo ""
+echo "✅ All duplicate files have been cleaned up!"
+echo ""
+echo "Next steps:"
+echo "1. Review changes: git status"
+echo "2. Commit changes: git commit -m 'chore: remove duplicate files with \" 2\" suffix'"
+echo "3. Push changes: git push"
+
