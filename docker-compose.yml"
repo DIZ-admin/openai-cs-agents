@@ -91,6 +91,7 @@ services:
       # Security
       SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-please-change-this-secret-key-in-production}
+      REQUIRE_AUTH: false
       ALLOWED_HOSTS: localhost,127.0.0.1,backend
       CORS_ORIGINS: http://localhost:3000,http://frontend:3000
       
@@ -124,7 +125,8 @@ services:
       context: ./ui
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://backend:8000
+        # Build-time: not used in runtime, but kept for compatibility
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: erni-frontend
     restart: unless-stopped
     depends_on:
@@ -132,7 +134,10 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: http://backend:8000
+      # Server-side URL (for Next.js rewrites inside Docker network)
+      BACKEND_URL: http://backend:8000
+      # Client-side URL (for browser - NOT used because rewrites handle all API calls)
+      # This is just for reference, actual API calls go through rewrites
       NEXT_PUBLIC_ENVIRONMENT: production
     # Note: Volume mounts removed for production build
     # For development, uncomment these lines:
