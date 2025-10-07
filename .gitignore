@@ -60,6 +60,13 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# SQLite conversation sessions (OpenAI Agents SDK)
+python-backend/data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
 # Flask stuff:
 instance/
 .webassets-cache

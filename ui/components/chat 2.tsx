@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { Message } from "@/lib/types";
 import ReactMarkdown from "react-markdown";
-import { SeatMap } from "./seat-map";
 
 interface ChatProps {
   messages: Message[];
@@ -16,39 +15,17 @@ export function Chat({ messages, onSendMessage, isLoading }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputText, setInputText] = useState("");
   const [isComposing, setIsComposing] = useState(false);
-  const [showSeatMap, setShowSeatMap] = useState(false);
-  const [selectedSeat, setSelectedSeat] = useState<string | undefined>(undefined);
 
   // Auto-scroll to bottom when messages or loading indicator change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages, isLoading]);
 
-  // Watch for special seat map trigger message (anywhere in list) and only if a seat has not been picked yet
-  useEffect(() => {
-    const hasTrigger = messages.some(
-      (m) => m.role === "assistant" && m.content === "DISPLAY_SEAT_MAP"
-    );
-    // Show map if trigger exists and seat not chosen yet
-    if (hasTrigger && !selectedSeat) {
-      setShowSeatMap(true);
-    }
-  }, [messages, selectedSeat]);
-
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return;
     onSendMessage(inputText);
     setInputText("");
   }, [inputText, onSendMessage]);
-
-  const handleSeatSelect = useCallback(
-    (seat: string) => {
-      setSelectedSeat(seat);
-      setShowSeatMap(false);
-      onSendMessage(`I would like seat ${seat}`);
-    },
-    [onSendMessage]
-  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -62,15 +39,14 @@ export function Chat({ messages, onSendMessage, isLoading }: ChatProps) {
 
   return (
     <div className="flex flex-col h-full flex-1 bg-white shadow-sm border border-gray-200 border-t-0 rounded-xl">
-      <div className="bg-blue-600 text-white h-12 px-4 flex items-center rounded-t-xl">
+      <div className="bg-[#928472] text-white h-12 px-4 flex items-center rounded-t-xl">
         <h2 className="font-semibold text-sm sm:text-base lg:text-lg">
-          Customer View
+          ERNI Gruppe - Customer Chat
         </h2>
       </div>
       {/* Messages */}
       <div className="flex-1 overflow-y-auto min-h-0 md:px-4 pt-4 pb-20">
         {messages.map((msg, idx) => {
-          if (msg.content === "DISPLAY_SEAT_MAP") return null; // Skip rendering marker message
           return (
             <div
               key={idx}
@@ -78,7 +54,7 @@ export function Chat({ messages, onSendMessage, isLoading }: ChatProps) {
                 }`}
             >
               {msg.role === "user" ? (
-                <div className="ml-4 rounded-[16px] rounded-br-[4px] px-4 py-2 md:ml-24 bg-black text-white font-light max-w-[80%]">
+                <div className="ml-4 rounded-[16px] rounded-br-[4px] px-4 py-2 md:ml-24 bg-[#928472] text-white font-light max-w-[80%]">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -89,19 +65,9 @@ export function Chat({ messages, onSendMessage, isLoading }: ChatProps) {
             </div>
           );
         })}
-        {showSeatMap && (
-          <div className="flex justify-start mb-5">
-            <div className="mr-4 rounded-[16px] rounded-bl-[4px] md:mr-24">
-              <SeatMap
-                onSeatSelect={handleSeatSelect}
-                selectedSeat={selectedSeat}
-              />
-            </div>
-          </div>
-        )}
         {isLoading && (
           <div className="flex mb-5 text-sm justify-start">
-            <div className="h-3 w-3 bg-black rounded-full animate-pulse" />
+            <div className="h-3 w-3 bg-[#928472] rounded-full animate-pulse" />
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -130,7 +96,7 @@ export function Chat({ messages, onSendMessage, isLoading }: ChatProps) {
                 </div>
                 <button
                   disabled={!inputText.trim()}
-                  className="flex h-8 w-8 items-end justify-center rounded-full bg-black text-white hover:opacity-70 disabled:bg-gray-300 disabled:text-gray-400 transition-colors focus:outline-none"
+                  className="flex h-8 w-8 items-end justify-center rounded-full bg-[#928472] text-white hover:opacity-70 disabled:bg-gray-300 disabled:text-gray-400 transition-colors focus:outline-none"
                   onClick={handleSend}
                 >
                   <svg
