@@ -1,0 +1,53 @@
+[pytest]
+# Pytest configuration for ERNI Gruppe Building Agents
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+
+# Async support
+asyncio_mode = auto
+asyncio_default_fixture_loop_scope = function
+
+# Coverage settings
+addopts =
+    --strict-markers
+    --strict-config
+    --verbose
+    --tb=short
+    --cov=.
+    --cov-report=term-missing
+    --cov-report=html:htmlcov
+    --cov-report=xml
+    --cov-fail-under=80
+
+# Test markers
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    e2e: End-to-end tests with real external services
+    slow: Slow running tests
+    guardrails: Guardrail tests
+    agents: Agent tests
+    tools: Tool tests
+    api: API endpoint tests
+    requires_openai: Tests that require OpenAI API key
+    requires_db: Tests that require database connection
+
+# Warnings
+filterwarnings =
+    ignore::DeprecationWarning
+    ignore::PendingDeprecationWarning
+    ignore::UserWarning:pydantic.*
+
+# Minimum version
+minversion = 7.0
+
+# Test discovery
+norecursedirs = .git .tox dist build *.egg htmlcov .pytest_cache
+
+# Logging
+log_cli = true
+log_cli_level = INFO
+log_cli_format = %(asctime)s [%(levelname)8s] %(name)s: %(message)s
+log_cli_date_format = %Y-%m-%d %H:%M:%S

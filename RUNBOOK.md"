@@ -651,6 +651,21 @@ docker-compose up -d --build
 
 ## 📊 Monitoring & Alerting
 
+### Service Level Objectives (SLOs)
+
+**Availability:**
+- Target: 99.9% uptime (8.76 hours downtime/year)
+- Measurement: Health endpoint availability over 30-day rolling window
+
+**Performance:**
+- P95 Response Time: < 2000ms
+- P99 Response Time: < 5000ms
+- Measurement: HTTP request duration histogram
+
+**Reliability:**
+- Error Rate: < 1% of all requests
+- Measurement: 5xx errors / total requests
+
 ### Key Metrics to Monitor
 
 #### Application Metrics
@@ -659,18 +674,57 @@ docker-compose up -d --build
 - **Response Time:** P50, P95, P99 latencies
 - **Agent Handoffs:** Successful vs failed handoffs
 - **Guardrail Triggers:** Relevance, jailbreak, PII blocks
+- **OpenAI API Calls:** Rate, latency, errors
+- **Authentication:** Login attempts, failures, token expirations
 
 #### Infrastructure Metrics
 - **CPU Usage:** < 70% normal, > 90% critical
 - **Memory Usage:** < 80% normal, > 95% critical
 - **Disk Usage:** < 80% normal, > 90% critical
 - **Network I/O:** Bandwidth usage
+- **Container Health:** Docker container status
 
 #### Database Metrics
-- **Connection Pool:** Active connections
+- **Connection Pool:** Active connections (max 100)
 - **Query Performance:** Slow queries (> 1s)
 - **Replication Lag:** If using replicas
 - **Disk I/O:** Read/write operations
+- **Table Size:** Growth rate monitoring
+
+#### Redis Metrics
+- **Memory Usage:** Current vs max memory
+- **Hit Rate:** Cache hit/miss ratio
+- **Evictions:** Number of evicted keys
+- **Connected Clients:** Active connections
+
+### Prometheus Setup
+
+**Installation:**
+```bash
+# Add Prometheus to docker-compose.yml
+docker-compose up -d prometheus grafana
+```
+
+**Configuration (`prometheus.yml`):**
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'erni-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+```
 
 ### Prometheus Queries
 
@@ -689,17 +743,50 @@ rate(http_requests_total{status=~"5.."}[5m])
 histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
 ```
 
+**CPU usage:**
+```promql
+100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+```
+
+**Memory usage:**
+```promql
+(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100
+```
+
+### Grafana Dashboards
+
+**Dashboard Setup:**
+1. Access Grafana: `http://localhost:3001`
+2. Add Prometheus data source
+3. Import dashboard ID: 1860 (Node Exporter Full)
+4. Create custom dashboard for ERNI metrics
+
+**Key Panels:**
+- Request Rate (line chart)
+- Error Rate (line chart with threshold)
+- Response Time (heatmap)
+- Active Users (gauge)
+- Agent Distribution (pie chart)
+- Database Connections (gauge)
+
+**Dashboard JSON:** See `monitoring/grafana-dashboard.json`
+
 ### Alert Rules
 
-#### Critical Alerts
+#### Critical Alerts (P0 - Immediate Response)
 
 **Service Down:**
 ```yaml
 - alert: ServiceDown
   expr: up{job="erni-backend"} == 0
   for: 1m
+  labels:
+    severity: critical
+    priority: P0
   annotations:
     summary: "Backend service is down"
+    description: "Backend has been down for more than 1 minute"
+    runbook: "https://wiki.erni-gruppe.ch/runbook#service-down"
 ```
 
 **High Error Rate:**
@@ -707,73 +794,366 @@ histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
 - alert: HighErrorRate
   expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
   for: 5m
+  labels:
+    severity: critical
+    priority: P0
   annotations:
     summary: "Error rate > 5%"
+    description: "5xx error rate is {{ $value | humanizePercentage }}"
 ```
 
-**Database Connection Issues:**
+**Database Connection Failed:**
 ```yaml
 - alert: DatabaseConnectionFailed
   expr: pg_up == 0
   for: 1m
+  labels:
+    severity: critical
+    priority: P0
   annotations:
     summary: "Cannot connect to PostgreSQL"
+    description: "PostgreSQL database is unreachable"
 ```
+
+#### High Priority Alerts (P1 - 1 Hour Response)
+
+**High Response Time:**
+```yaml
+- alert: HighResponseTime
+  expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+  for: 10m
+  labels:
+    severity: high
+    priority: P1
+  annotations:
+    summary: "P95 response time > 2s"
+    description: "P95 latency is {{ $value }}s"
+```
+
+**High CPU Usage:**
+```yaml
+- alert: HighCPUUsage
+  expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+  for: 10m
+  labels:
+    severity: high
+    priority: P1
+  annotations:
+    summary: "CPU usage > 90%"
+    description: "CPU usage is {{ $value }}%"
+```
+
+**High Memory Usage:**
+```yaml
+- alert: HighMemoryUsage
+  expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 95
+  for: 10m
+  labels:
+    severity: high
+    priority: P1
+  annotations:
+    summary: "Memory usage > 95%"
+    description: "Memory usage is {{ $value }}%"
+```
+
+#### Medium Priority Alerts (P2 - 4 Hour Response)
+
+**Disk Space Low:**
+```yaml
+- alert: DiskSpaceLow
+  expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+  for: 30m
+  labels:
+    severity: medium
+    priority: P2
+  annotations:
+    summary: "Disk space < 20%"
+    description: "Available disk space is {{ $value }}%"
+```
+
+**Redis Memory High:**
+```yaml
+- alert: RedisMemoryHigh
+  expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+  for: 15m
+  labels:
+    severity: medium
+    priority: P2
+  annotations:
+    summary: "Redis memory usage > 90%"
+```
+
+### Alert Notification Channels
+
+**Slack Integration:**
+```yaml
+receivers:
+  - name: 'slack-critical'
+    slack_configs:
+      - api_url: $SLACK_WEBHOOK_URL
+        channel: '#erni-alerts-critical'
+        title: '🚨 {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  - name: 'slack-high'
+    slack_configs:
+      - api_url: $SLACK_WEBHOOK_URL
+        channel: '#erni-alerts-high'
+        title: '⚠️ {{ .GroupLabels.alertname }}'
+```
+
+**Email Integration:**
+```yaml
+  - name: 'email-oncall'
+    email_configs:
+      - to: 'oncall@erni-gruppe.ch'
+        from: 'alerts@erni-gruppe.ch'
+        smarthost: 'smtp.erni-gruppe.ch:587'
+        auth_username: 'alerts@erni-gruppe.ch'
+        auth_password: $SMTP_PASSWORD
+```
+
+**PagerDuty Integration:**
+```yaml
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: $PAGERDUTY_SERVICE_KEY
+        description: '{{ .GroupLabels.alertname }}: {{ .Annotations.summary }}'
+```
+
+### On-Call Rotation
+
+**Schedule:**
+- **Primary On-Call:** Rotates weekly (Monday 09:00 - Monday 09:00)
+- **Secondary On-Call:** Backup for primary
+- **Escalation:** After 15 minutes if no response
+
+**Current Rotation:** See PagerDuty schedule or `monitoring/oncall-schedule.md`
+
+**Responsibilities:**
+- Monitor alerts 24/7
+- Respond within SLA (P0: 15min, P1: 1hr, P2: 4hr)
+- Escalate if unable to resolve
+- Document incidents in post-mortem
 
 ---
 
 ## 💾 Backup & Recovery
 
-### Backup Strategy
+### Backup Strategy Overview
 
-#### Database Backups
+**Backup Objectives:**
+- **RPO (Recovery Point Objective):** 24 hours (maximum data loss acceptable)
+- **RTO (Recovery Time Objective):** 4 hours (maximum downtime acceptable)
+- **Retention Policy:**
+  - Daily backups: 30 days
+  - Weekly backups: 3 months
+  - Monthly backups: 1 year
 
-**Automated daily backup (cron):**
+### Database Backups
+
+#### Automated Daily Backups
+
+**Schedule:** Daily at 02:00 UTC (off-peak hours)
+
+**Cron Configuration:**
 ```bash
-# Add to crontab
-0 2 * * * /path/to/backup-script.sh
+# Add to crontab (crontab -e)
+0 2 * * * /opt/erni-agents/scripts/backup-database.sh >> /var/log/erni-backup.log 2>&1
 ```
 
-**Backup script (`backup-script.sh`):**
+**Backup Script (`scripts/backup-database.sh`):**
 ```bash
 #!/bin/bash
+set -e
+
+# Configuration
 BACKUP_DIR="/backups/postgres"
+S3_BUCKET="s3://erni-agents-backups/postgres"
 DATE=$(date +%Y%m%d_%H%M%S)
+DAY_OF_WEEK=$(date +%u)  # 1=Monday, 7=Sunday
+DAY_OF_MONTH=$(date +%d)
 BACKUP_FILE="$BACKUP_DIR/erni_agents_$DATE.sql"
+RETENTION_DAYS=30
+RETENTION_WEEKS=90
+RETENTION_MONTHS=365
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
 
 # Create backup
-docker exec erni-postgres pg_dump -U erni_user erni_agents > $BACKUP_FILE
+echo "Starting backup at $(date)"
+docker exec erni-postgres pg_dump -U erni_user -Fc erni_agents > $BACKUP_FILE
 
 # Compress
 gzip $BACKUP_FILE
+BACKUP_FILE="${BACKUP_FILE}.gz"
 
-# Delete backups older than 30 days
-find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
+# Verify backup
+if [ -f "$BACKUP_FILE" ]; then
+    SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    echo "Backup created: $BACKUP_FILE ($SIZE)"
+else
+    echo "ERROR: Backup failed!"
+    exit 1
+fi
 
-echo "Backup completed: $BACKUP_FILE.gz"
+# Upload to S3 (if configured)
+if command -v aws &> /dev/null; then
+    aws s3 cp "$BACKUP_FILE" "$S3_BUCKET/daily/" --storage-class STANDARD_IA
+    echo "Uploaded to S3: $S3_BUCKET/daily/"
+fi
+
+# Weekly backup (Sunday)
+if [ "$DAY_OF_WEEK" -eq 7 ]; then
+    cp "$BACKUP_FILE" "$BACKUP_DIR/weekly_$(date +%Y%W).sql.gz"
+    if command -v aws &> /dev/null; then
+        aws s3 cp "$BACKUP_FILE" "$S3_BUCKET/weekly/" --storage-class GLACIER
+    fi
+    echo "Weekly backup created"
+fi
+
+# Monthly backup (1st of month)
+if [ "$DAY_OF_MONTH" -eq 01 ]; then
+    cp "$BACKUP_FILE" "$BACKUP_DIR/monthly_$(date +%Y%m).sql.gz"
+    if command -v aws &> /dev/null; then
+        aws s3 cp "$BACKUP_FILE" "$S3_BUCKET/monthly/" --storage-class DEEP_ARCHIVE
+    fi
+    echo "Monthly backup created"
+fi
+
+# Delete old backups
+find $BACKUP_DIR -name "erni_agents_*.sql.gz" -mtime +$RETENTION_DAYS -delete
+find $BACKUP_DIR -name "weekly_*.sql.gz" -mtime +$RETENTION_WEEKS -delete
+find $BACKUP_DIR -name "monthly_*.sql.gz" -mtime +$RETENTION_MONTHS -delete
+
+echo "Backup completed at $(date)"
 ```
 
-#### Redis Backups
+**Make script executable:**
+```bash
+chmod +x /opt/erni-agents/scripts/backup-database.sh
+```
 
-**Manual snapshot:**
+#### Manual Backup
+
+**Create immediate backup:**
+```bash
+/opt/erni-agents/scripts/backup-database.sh
+```
+
+**Or using docker directly:**
+```bash
+docker exec erni-postgres pg_dump -U erni_user -Fc erni_agents | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+```
+
+#### Backup Verification
+
+**Test backup integrity (monthly):**
+```bash
+# Extract backup
+gunzip -c backup_20250105.sql.gz > backup_test.sql
+
+# Restore to test database
+docker exec -i erni-postgres psql -U erni_user -c "CREATE DATABASE test_restore;"
+docker exec -i erni-postgres pg_restore -U erni_user -d test_restore < backup_test.sql
+
+# Verify data
+docker exec erni-postgres psql -U erni_user -d test_restore -c "SELECT COUNT(*) FROM conversations;"
+
+# Cleanup
+docker exec erni-postgres psql -U erni_user -c "DROP DATABASE test_restore;"
+rm backup_test.sql
+```
+
+### Redis Backups
+
+#### Automated Redis Backups
+
+**Schedule:** Daily at 03:00 UTC
+
+**Cron Configuration:**
+```bash
+0 3 * * * /opt/erni-agents/scripts/backup-redis.sh >> /var/log/erni-backup.log 2>&1
+```
+
+**Backup Script (`scripts/backup-redis.sh`):**
+```bash
+#!/bin/bash
+set -e
+
+BACKUP_DIR="/backups/redis"
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/redis_$DATE.rdb"
+
+mkdir -p $BACKUP_DIR
+
+# Trigger Redis save
+docker exec erni-redis redis-cli -a ${REDIS_PASSWORD} BGSAVE
+
+# Wait for save to complete
+sleep 10
+
+# Copy RDB file
+docker cp erni-redis:/data/dump.rdb "$BACKUP_FILE"
+
+# Compress
+gzip "$BACKUP_FILE"
+
+# Delete old backups (7 days retention for Redis)
+find $BACKUP_DIR -name "redis_*.rdb.gz" -mtime +7 -delete
+
+echo "Redis backup completed: ${BACKUP_FILE}.gz"
+```
+
+#### Manual Redis Snapshot
+
 ```bash
 docker exec erni-redis redis-cli -a ${REDIS_PASSWORD} BGSAVE
-```
-
-**Copy RDB file:**
-```bash
 docker cp erni-redis:/data/dump.rdb ./redis_backup_$(date +%Y%m%d).rdb
 ```
 
-#### Application Code Backups
+### Application Code Backups
 
-**Git repository:**
+**Git Repository (Primary):**
 ```bash
-# Ensure all changes are committed
-git status
-git add .
-git commit -m "Backup before deployment"
+# All code is version controlled in Git
 git push origin main
+git push origin --tags
+```
+
+**Configuration Backups:**
+```bash
+# Backup .env files (encrypted)
+tar -czf env_backup_$(date +%Y%m%d).tar.gz python-backend/.env
+gpg --encrypt --recipient admin@erni-gruppe.ch env_backup_$(date +%Y%m%d).tar.gz
+```
+
+### Backup Monitoring
+
+**Verify backups are running:**
+```bash
+# Check cron logs
+tail -f /var/log/erni-backup.log
+
+# Check backup directory
+ls -lh /backups/postgres/ | tail -10
+
+# Check S3 backups (if configured)
+aws s3 ls s3://erni-agents-backups/postgres/daily/ | tail -10
+```
+
+**Alert if backup fails:**
+```yaml
+# Add to Prometheus alertmanager
+- alert: BackupFailed
+  expr: time() - backup_last_success_timestamp > 86400
+  for: 1h
+  labels:
+    severity: high
+    priority: P1
+  annotations:
+    summary: "Database backup has not run in 24 hours"
 ```
 
 ### Recovery Procedures
@@ -1019,28 +1399,216 @@ docker-compose logs --tail=100
 
 ## 📞 Emergency Contacts
 
+### Team Structure
+
+#### Development Team
+
+| Role | Name | Email | Phone | Slack | Availability |
+|------|------|-------|-------|-------|--------------|
+| **Tech Lead** | TBD | tech.lead@erni-gruppe.ch | +41 XX XXX XX XX | @tech-lead | Mon-Fri 09:00-18:00 CET |
+| **Backend Lead** | TBD | backend.lead@erni-gruppe.ch | +41 XX XXX XX XX | @backend-lead | Mon-Fri 09:00-18:00 CET |
+| **Frontend Lead** | TBD | frontend.lead@erni-gruppe.ch | +41 XX XXX XX XX | @frontend-lead | Mon-Fri 09:00-18:00 CET |
+| **DevOps Engineer** | TBD | devops@erni-gruppe.ch | +41 XX XXX XX XX | @devops | Mon-Fri 09:00-18:00 CET |
+| **QA Lead** | TBD | qa@erni-gruppe.ch | +41 XX XXX XX XX | @qa-lead | Mon-Fri 09:00-18:00 CET |
+
+#### Management
+
+| Role | Name | Email | Phone | Escalation Level |
+|------|------|-------|-------|------------------|
+| **Engineering Manager** | TBD | eng.manager@erni-gruppe.ch | +41 XX XXX XX XX | Level 3 |
+| **CTO** | TBD | cto@erni-gruppe.ch | +41 XX XXX XX XX | Level 4 |
+| **Product Owner** | TBD | product@erni-gruppe.ch | +41 XX XXX XX XX | Business decisions |
+
 ### On-Call Rotation
 
-| Role | Name | Phone | Email | Backup |
-|------|------|-------|-------|--------|
-| **DevOps Lead** | TBD | +41 XX XXX XX XX | devops@erni-gruppe.ch | TBD |
-| **Backend Lead** | TBD | +41 XX XXX XX XX | backend@erni-gruppe.ch | TBD |
-| **Frontend Lead** | TBD | +41 XX XXX XX XX | frontend@erni-gruppe.ch | TBD |
+**Schedule:** Weekly rotation (Monday 09:00 - Monday 09:00 CET)
+
+**Current Week (Week of Jan 6, 2025):**
+
+| Position | Name | Phone | Email | Slack |
+|----------|------|-------|-------|-------|
+| **Primary On-Call** | TBD | +41 XX XXX XX XX | oncall.primary@erni-gruppe.ch | @oncall-primary |
+| **Secondary On-Call** | TBD | +41 XX XXX XX XX | oncall.secondary@erni-gruppe.ch | @oncall-secondary |
+
+**Rotation Schedule:** See PagerDuty or `monitoring/oncall-schedule.md`
+
+**On-Call Responsibilities:**
+- Monitor alerts 24/7 during on-call period
+- Respond to incidents within SLA:
+  - P0 (Critical): 15 minutes
+  - P1 (High): 1 hour
+  - P2 (Medium): 4 hours
+  - P3 (Low): Next business day
+- Escalate to secondary if unable to resolve within 30 minutes
+- Document all incidents in incident log
+- Write post-mortem for P0/P1 incidents within 48 hours
+
+**On-Call Compensation:**
+- On-call allowance: CHF 200/week
+- Incident response: CHF 100/hour (minimum 1 hour)
+- Weekend/holiday incidents: 1.5x rate
 
 ### Escalation Path
 
-1. **Level 1:** On-call engineer (15 min response)
-2. **Level 2:** Team lead (30 min response)
-3. **Level 3:** Engineering manager (1 hour response)
-4. **Level 4:** CTO (2 hour response)
+**Incident Severity Levels:**
+
+| Level | Severity | Response Time | Escalation After | Example |
+|-------|----------|---------------|------------------|---------|
+| **P0** | Critical | 15 minutes | 30 minutes | Service completely down |
+| **P1** | High | 1 hour | 2 hours | Major feature broken |
+| **P2** | Medium | 4 hours | 8 hours | Minor feature affected |
+| **P3** | Low | Next business day | 2 business days | Cosmetic issue |
+
+**Escalation Procedure:**
+
+1. **Level 1: Primary On-Call Engineer**
+   - First responder for all incidents
+   - Response time: As per severity level
+   - Actions:
+     - Acknowledge alert in PagerDuty
+     - Assess severity and impact
+     - Begin troubleshooting
+     - Update incident status in Slack (#incidents channel)
+
+2. **Level 2: Secondary On-Call Engineer**
+   - Escalated after: 30 minutes (P0), 2 hours (P1)
+   - Actions:
+     - Assist primary on-call
+     - Provide second opinion
+     - Take over if primary unavailable
+
+3. **Level 3: Engineering Manager**
+   - Escalated after: 1 hour (P0), 4 hours (P1)
+   - Response time: 1 hour
+   - Actions:
+     - Coordinate resources
+     - Make architectural decisions
+     - Communicate with stakeholders
+     - Approve emergency changes
+
+4. **Level 4: CTO**
+   - Escalated after: 2 hours (P0), 8 hours (P1)
+   - Response time: 2 hours
+   - Actions:
+     - Executive decision making
+     - External communication
+     - Resource allocation
+     - Business continuity decisions
+
+**Escalation Contacts:**
+```
+Primary On-Call:   +41 XX XXX XX XX (PagerDuty)
+Secondary On-Call: +41 XX XXX XX XX (PagerDuty)
+Eng Manager:       +41 XX XXX XX XX
+CTO:               +41 XX XXX XX XX
+Emergency Hotline: +41 XX XXX XX XX (24/7)
+```
 
 ### External Contacts
 
-| Service | Contact | Purpose |
-|---------|---------|---------|
-| **OpenAI Support** | support@openai.com | API issues |
-| **Cloud Provider** | TBD | Infrastructure issues |
-| **DNS Provider** | TBD | Domain issues |
+#### Service Providers
+
+| Service | Contact | Phone | Email | Support Portal | SLA |
+|---------|---------|-------|-------|----------------|-----|
+| **OpenAI** | OpenAI Support | - | support@openai.com | https://help.openai.com | 24 hours |
+| **Cloud Provider (AWS)** | AWS Support | +1-XXX-XXX-XXXX | - | https://console.aws.amazon.com/support | 1 hour (Business) |
+| **DNS Provider (Cloudflare)** | Cloudflare Support | - | support@cloudflare.com | https://dash.cloudflare.com | 2 hours |
+| **Monitoring (Datadog)** | Datadog Support | - | support@datadoghq.com | https://app.datadoghq.com/help | 4 hours |
+
+#### Infrastructure
+
+| Component | Provider | Contact | Emergency Procedure |
+|-----------|----------|---------|---------------------|
+| **Hosting** | TBD | TBD | See hosting provider runbook |
+| **Database** | PostgreSQL (self-hosted) | Internal | Escalate to DevOps |
+| **CDN** | TBD | TBD | Check CDN provider status page |
+| **Email** | TBD | TBD | Use backup SMTP server |
+
+#### Business Contacts
+
+| Role | Name | Email | Phone | Purpose |
+|------|------|-------|-------|---------|
+| **Product Owner** | TBD | product@erni-gruppe.ch | +41 XX XXX XX XX | Business decisions |
+| **Customer Success** | TBD | success@erni-gruppe.ch | +41 XX XXX XX XX | Customer communication |
+| **Legal** | TBD | legal@erni-gruppe.ch | +41 XX XXX XX XX | Data breach, compliance |
+| **PR/Communications** | TBD | pr@erni-gruppe.ch | +41 XX XXX XX XX | Public incidents |
+
+### Communication Channels
+
+**Internal:**
+- **Slack Channels:**
+  - `#incidents` - Active incident coordination
+  - `#erni-alerts-critical` - P0 alerts
+  - `#erni-alerts-high` - P1 alerts
+  - `#on-call` - On-call coordination
+  - `#engineering` - General engineering discussion
+
+- **PagerDuty:** https://erni-gruppe.pagerduty.com
+- **Status Page (Internal):** https://status.erni-gruppe.ch
+- **Incident Management:** https://incidents.erni-gruppe.ch
+
+**External:**
+- **Status Page (Public):** https://status.erni-agents.com
+- **Support Email:** support@erni-gruppe.ch
+- **Emergency Hotline:** +41 XX XXX XX XX
+
+### Incident Communication Template
+
+**Initial Alert (within 15 minutes):**
+```
+🚨 INCIDENT ALERT
+
+Severity: [P0/P1/P2/P3]
+Status: Investigating
+Impact: [Description of user impact]
+Started: [Timestamp]
+Incident Commander: [Name]
+
+We are investigating [brief description]. Updates every 30 minutes.
+
+Status Page: https://status.erni-agents.com
+```
+
+**Update (every 30 minutes for P0/P1):**
+```
+📊 INCIDENT UPDATE
+
+Severity: [P0/P1/P2/P3]
+Status: [Investigating/Identified/Monitoring/Resolved]
+Impact: [Current impact]
+Progress: [What we've done, what we're doing next]
+
+Next update: [Timestamp]
+```
+
+**Resolution:**
+```
+✅ INCIDENT RESOLVED
+
+Severity: [P0/P1/P2/P3]
+Duration: [Total time]
+Root Cause: [Brief description]
+Resolution: [What fixed it]
+
+Post-mortem: [Link] (available within 48 hours)
+```
+
+### Support Hours
+
+**Business Hours:**
+- Monday - Friday: 09:00 - 18:00 CET
+- Saturday - Sunday: Closed (on-call only)
+- Public Holidays: Closed (on-call only)
+
+**On-Call Coverage:**
+- 24/7/365 for P0 and P1 incidents
+- P2/P3 incidents handled during business hours
+
+**Response Time SLA:**
+- P0 (Critical): 15 minutes (24/7)
+- P1 (High): 1 hour (24/7)
+- P2 (Medium): 4 hours (business hours)
+- P3 (Low): Next business day
 
 ---
 

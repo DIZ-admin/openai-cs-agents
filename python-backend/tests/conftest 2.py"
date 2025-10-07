@@ -3,21 +3,6 @@ Pytest configuration and shared fixtures for ERNI Gruppe Building Agents tests.
 """
 
 import os
-
-# Set environment variables BEFORE importing any application modules
-# This ensures rate limiting is disabled during tests
-# OPENAI_API_KEY should be set in environment or .env file
-if "OPENAI_API_KEY" not in os.environ:
-    # Use a test key if not set (will fail for real API calls)
-    os.environ["OPENAI_API_KEY"] = "test-api-key"
-os.environ["ENVIRONMENT"] = "test"
-os.environ["DEBUG"] = "true"
-os.environ["DISABLE_RATE_LIMIT"] = "true"
-
-# Enable OpenAI mocking if MOCK_OPENAI environment variable is set
-# This is useful for CI/CD environments where OpenAI API key is not available
-MOCK_OPENAI = os.environ.get("MOCK_OPENAI", "false").lower() == "true"
-
 from typing import Dict, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -42,7 +27,14 @@ from api import app
 # ============================================================================
 # Environment Setup
 # ============================================================================
-# Note: Environment variables are set at the top of this file before imports
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment():
+    """Set up test environment variables."""
+    os.environ["OPENAI_API_KEY"] = "test-api-key"
+    os.environ["ENVIRONMENT"] = "test"
+    os.environ["DEBUG"] = "true"
 
 
 # ============================================================================
@@ -194,69 +186,6 @@ def sample_specialist_data():
         "date": "Tuesday, May 15",
         "time": "14:00",
     }
-
-
-# ============================================================================
-# OpenAI Mocking Fixtures (for CI/CD without API key)
-# ============================================================================
-
-
-@pytest.fixture
-def mock_openai_client():
-    """
-    Mock OpenAI client for testing without API key.
-
-    Usage:
-        Set environment variable MOCK_OPENAI=true to enable mocking.
-        This is useful for CI/CD environments where OpenAI API key is not available.
-    """
-    if not MOCK_OPENAI:
-        # Return None if mocking is disabled (use real OpenAI client)
-        return None
-
-    # Create mock OpenAI client
-    mock_client = MagicMock()
-
-    # Mock chat completions
-    mock_completion = MagicMock()
-    mock_completion.choices = [MagicMock()]
-    mock_completion.choices[0].message.content = "Mocked OpenAI response"
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_completion)
-
-    # Mock vector store queries
-    mock_vector_response = MagicMock()
-    mock_vector_response.data = [
-        {"content": "Mocked vector store result 1"},
-        {"content": "Mocked vector store result 2"}
-    ]
-    mock_client.vector_stores.query = AsyncMock(return_value=mock_vector_response)
-
-    return mock_client
-
-
-@pytest.fixture
-def mock_openai_agents():
-    """
-    Mock OpenAI Agents SDK for testing without API key.
-
-    This fixture mocks the entire agents SDK to allow testing
-    agent behavior without making real API calls.
-    """
-    if not MOCK_OPENAI:
-        return None
-
-    # Mock agent run
-    mock_run = MagicMock()
-    mock_run.status = "completed"
-    mock_run.messages = [
-        MagicMock(role="assistant", content="Mocked agent response")
-    ]
-
-    # Mock agent runner
-    mock_runner = MagicMock()
-    mock_runner.run = AsyncMock(return_value=mock_run)
-
-    return mock_runner
 
 
 # ============================================================================
