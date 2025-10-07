@@ -93,6 +93,9 @@ load_dotenv()
 # Import security validator (will auto-validate on import in production)
 from security_validator import ProductionSecurityValidator
 
+# Import production config
+from production_config import Config
+
 # Get structured logger
 logger = get_logger(__name__)
 
@@ -867,7 +870,9 @@ conversation context across multiple messages.
 async def chat_endpoint(
     body: ChatRequest,
     request: Request,
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: Optional[User] = Depends(
+        get_current_active_user if Config.REQUIRE_AUTH else get_optional_current_user
+    )
 ):
     """
     Main chat endpoint for agent orchestration.
@@ -877,7 +882,9 @@ async def chat_endpoint(
     Rate limited to 10 requests per minute per IP.
 
     **Authentication:**
-    - Optional by default (set REQUIRE_AUTH=true to enforce)
+    - Controlled by REQUIRE_AUTH environment variable
+    - REQUIRE_AUTH=true: Authentication required (production default)
+    - REQUIRE_AUTH=false: Authentication optional (development default)
     - If authenticated, user info is logged for audit purposes
     """
     # Log authenticated user if present

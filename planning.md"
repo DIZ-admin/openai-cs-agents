@@ -9,7 +9,7 @@ AI-powered multi-agent customer service system for ERNI Gruppe, a leading Swiss 
 ### Technology Stack
 
 **Backend:**
-- Python 3.9+ with FastAPI
+- Python 3.11+ with FastAPI
 - OpenAI Agents SDK 0.3.3
 - Pydantic for data validation
 - Uvicorn/Gunicorn ASGI server

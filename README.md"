@@ -65,7 +65,7 @@ An intelligent multi-agent system built for **ERNI Gruppe**, a leading Swiss tim
 
 ### Prerequisites
 
-- **Python 3.10+** (recommended 3.11 or 3.12)
+- **Python 3.11+** (recommended 3.11 or 3.12)
 - **Node.js 18+** (LTS recommended)
 - **OpenAI API Key** ([Get one here](https://platform.openai.com/api-keys))
 
@@ -90,15 +90,37 @@ cp .env.example .env
 Edit `python-backend/.env` and add your secrets:
 
 ```env
+# OpenAI Configuration
 OPENAI_API_KEY=sk-proj-your-api-key-here
 OPENAI_VECTOR_STORE_ID=vs_your-vector-store-id-here
+
+# Environment
 ENVIRONMENT=development
 DEBUG=true
+
+# Security
 SECRET_KEY=your-secret-key-here
 JWT_SECRET_KEY=your-jwt-secret-key-here
+
+# Authentication
+# REQUIRE_AUTH: Enforce authentication for API endpoints
+# - true: All endpoints require valid JWT token (recommended for production)
+# - false: Endpoints are accessible without authentication (development only)
+# Default: true for production, false for development
+REQUIRE_AUTH=false
+
+# Database
 DB_PASSWORD=your-postgres-password
+
+# Redis
 REDIS_PASSWORD=your-redis-password
 ```
+
+**Important Environment Variables:**
+- `REQUIRE_AUTH`: Controls authentication enforcement
+  - Set to `true` in production to require JWT tokens
+  - Set to `false` in development for easier testing
+  - Defaults to `true` in production, `false` in development
 
 **Note:** Never commit the `.env` file to version control. It's already in `.gitignore`.
 

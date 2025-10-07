@@ -145,8 +145,8 @@ def create_initial_context() -> BuildingProjectContext:
 # =========================
 
 # Model names (can be overridden via environment variables)
-MAIN_AGENT_MODEL = os.getenv("OPENAI_MAIN_AGENT_MODEL", "gpt-4.1-mini")
-GUARDRAIL_MODEL = os.getenv("OPENAI_GUARDRAIL_MODEL", "gpt-4.1-mini")
+MAIN_AGENT_MODEL = os.getenv("OPENAI_MAIN_AGENT_MODEL", "gpt-4o-mini")
+GUARDRAIL_MODEL = os.getenv("OPENAI_GUARDRAIL_MODEL", "gpt-4o-mini")
 
 # Vector Store ID for FAQ Agent knowledge base (REQUIRED)
 VECTOR_STORE_ID = os.getenv("OPENAI_VECTOR_STORE_ID")

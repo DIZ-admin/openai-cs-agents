@@ -53,6 +53,15 @@ class Config:
         os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
     )
 
+    # Authentication
+    # REQUIRE_AUTH: Enforce authentication for API endpoints
+    # - true: All endpoints require valid JWT token (recommended for production)
+    # - false: Endpoints are accessible without authentication (development only)
+    # Default: true for production, false for development
+    REQUIRE_AUTH: bool = (
+        os.getenv("REQUIRE_AUTH", "true" if ENVIRONMENT == "production" else "false").lower() == "true"
+    )
+
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
     RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))

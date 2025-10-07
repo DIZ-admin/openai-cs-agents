@@ -102,7 +102,7 @@ class TestTriageAgent:
     @pytest.mark.agents
     async def test_triage_agent_model_configuration(self):
         """Test that triage agent uses correct model settings."""
-        assert triage_agent.model == "gpt-4.1-mini"
+        assert triage_agent.model == "gpt-4o-mini"
         assert triage_agent.model_settings is not None
         # Updated: Temperature lowered from 0.7 to 0.3 for more deterministic routing
         assert triage_agent.model_settings.temperature == 0.3

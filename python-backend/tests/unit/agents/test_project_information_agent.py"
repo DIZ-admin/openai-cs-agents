@@ -36,7 +36,7 @@ class TestProjectInformationAgent:
         assert (
             len(project_information_agent.input_guardrails) == 2
         )  # relevance and jailbreak
-        assert project_information_agent.model == "gpt-4.1-mini"
+        assert project_information_agent.model == "gpt-4o-mini"
         assert project_information_agent.model_settings is not None
         assert project_information_agent.model_settings.temperature == 0.3
 

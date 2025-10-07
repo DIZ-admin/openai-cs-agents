@@ -21,6 +21,7 @@ Usage:
 """
 
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -29,6 +30,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Configuration
@@ -91,24 +95,19 @@ class UserInDB(User):
 
 # WARNING: This is a mock database for demonstration purposes only.
 # In production, replace this with a real database (PostgreSQL, MongoDB, etc.)
-fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "full_name": "Admin User",
-        "email": "admin@erni-gruppe.ch",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
-        "disabled": False,
-        "roles": ["admin", "user"],
-    },
-    "demo": {
-        "username": "demo",
-        "full_name": "Demo User",
-        "email": "demo@erni-gruppe.ch",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
-        "disabled": False,
-        "roles": ["user"],
-    },
-}
+
+# Load demo users only in development and test environments
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+if ENVIRONMENT in ("development", "test"):
+    # Import demo users for development and testing
+    from demo_users import DEMO_USERS_DB
+    fake_users_db = DEMO_USERS_DB
+    logger.info(f"Loaded demo users for {ENVIRONMENT} environment")
+else:
+    # Empty user database in production - must be replaced with real database
+    fake_users_db = {}
+    logger.warning("Demo users disabled in production. Configure real user database.")
 
 
 # ============================================================================

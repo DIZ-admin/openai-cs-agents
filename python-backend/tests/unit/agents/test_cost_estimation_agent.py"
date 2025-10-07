@@ -36,7 +36,7 @@ class TestCostEstimationAgent:
         assert (
             len(cost_estimation_agent.input_guardrails) == 2
         )  # relevance and jailbreak
-        assert cost_estimation_agent.model == "gpt-4.1-mini"
+        assert cost_estimation_agent.model == "gpt-4o-mini"
         assert cost_estimation_agent.model_settings is not None
         assert cost_estimation_agent.model_settings.temperature == 0.3
 
