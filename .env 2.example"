@@ -1,0 +1,37 @@
+# OpenAI API Configuration
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Model Configuration
+# Main agent model (for customer-facing agents with complex reasoning)
+OPENAI_MAIN_AGENT_MODEL=gpt-5-mini
+
+# Guardrail model (for fast, deterministic input validation)
+OPENAI_GUARDRAIL_MODEL=gpt-5-nano
+
+# Model Settings
+# Temperature for main agents (0.0-1.0, higher = more creative)
+OPENAI_MAIN_AGENT_TEMPERATURE=0.7
+
+# Temperature for guardrail agents (0.0 = deterministic)
+OPENAI_GUARDRAIL_TEMPERATURE=0.0
+
+# Max tokens for main agents
+OPENAI_MAIN_AGENT_MAX_TOKENS=2000
+
+# Max tokens for guardrail agents
+OPENAI_GUARDRAIL_MAX_TOKENS=500
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+API_ENVIRONMENT=development
+
+# CORS Configuration
+CORS_ALLOW_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_METHODS=*
+CORS_ALLOW_HEADERS=*
+
+# Logging
+LOG_LEVEL=INFO
+

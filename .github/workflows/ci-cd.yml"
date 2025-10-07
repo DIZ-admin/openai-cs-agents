@@ -1,0 +1,445 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, production, feature/erni-building-agents, develop]
+  pull_request:
+    branches: [main, production, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Backend Tests
+  # --------------------------------------------------------------------------
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        working-directory: ./python-backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run pip-audit
+        working-directory: ./python-backend
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+      
+      - name: Run linting
+        working-directory: ./python-backend
+        run: |
+          pip install flake8 black isort
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check .
+          isort --check-only .
+      
+      - name: Run tests
+        working-directory: ./python-backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_TEST }}
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./python-backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  # --------------------------------------------------------------------------
+  # Frontend Tests
+  # --------------------------------------------------------------------------
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./ui/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./ui
+        run: npm ci
+      
+      - name: Run linting
+        working-directory: ./ui
+        run: npm run lint
+      
+      - name: Run type checking
+        working-directory: ./ui
+        run: npm run type-check
+      
+      - name: Run tests
+        working-directory: ./ui
+        run: npm test -- --coverage
+      
+      - name: Build application
+        working-directory: ./ui
+        run: npm run build
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./ui/coverage/coverage-final.json
+          flags: frontend
+          name: frontend-coverage
+
+  # --------------------------------------------------------------------------
+  # Security Scanning
+  # --------------------------------------------------------------------------
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Python dependency check
+        working-directory: ./python-backend
+        run: |
+          pip install safety
+          safety check --json
+      
+      - name: Node.js dependency check
+        working-directory: ./ui
+        run: npm audit --audit-level=moderate
+
+  # --------------------------------------------------------------------------
+  # Security & Load Testing
+  # --------------------------------------------------------------------------
+  security-load-tests:
+    name: Security & Load Tests
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: erni_agents
+          POSTGRES_USER: erni_user
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD_PROD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        command: ["redis-server", "--requirepass", "${{ secrets.REDIS_PASSWORD_PROD }}"]
+        options: >-
+          --health-cmd "redis-cli -a ${{ secrets.REDIS_PASSWORD_PROD }} ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        working-directory: ./python-backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust
+
+      - name: Run preflight check
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_TEST }}
+          OPENAI_VECTOR_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID_TEST }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY_PROD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_PROD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD_PROD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD_PROD }}
+          ALLOWED_HOSTS: ci.erni-gruppe.ch
+          CORS_ORIGINS: https://ci.erni-gruppe.ch
+          PUBLIC_HOSTNAME: ci.erni-gruppe.ch
+        run: python3 scripts/preflight_check.py
+
+      - name: Start backend server
+        working-directory: ./python-backend
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_TEST }}
+          OPENAI_VECTOR_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID_TEST }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY_PROD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_PROD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD_PROD }}
+          DATABASE_URL: postgresql://erni_user:${{ secrets.DB_PASSWORD_PROD }}@localhost:5432/erni_agents
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD_PROD }}
+          REDIS_URL: redis://:${{ secrets.REDIS_PASSWORD_PROD }}@localhost:6379/0
+          ALLOWED_HOSTS: ci.erni-gruppe.ch
+          CORS_ORIGINS: https://ci.erni-gruppe.ch
+          PUBLIC_HOSTNAME: ci.erni-gruppe.ch
+          ENVIRONMENT: production
+          DEBUG: "false"
+        run: |
+          uvicorn api:app --host 0.0.0.0 --port 8000 --log-level warning &
+          echo $! > ../uvicorn.pid
+          sleep 15
+
+      - name: Run API security tests
+        working-directory: ./python-backend/security_audit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_TEST }}
+          OPENAI_VECTOR_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID_TEST }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY_PROD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_PROD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD_PROD }}
+          DATABASE_URL: postgresql://erni_user:${{ secrets.DB_PASSWORD_PROD }}@localhost:5432/erni_agents
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD_PROD }}
+          REDIS_URL: redis://:${{ secrets.REDIS_PASSWORD_PROD }}@localhost:6379/0
+          ALLOWED_HOSTS: ci.erni-gruppe.ch
+          CORS_ORIGINS: https://ci.erni-gruppe.ch
+          PUBLIC_HOSTNAME: ci.erni-gruppe.ch
+          ENVIRONMENT: production
+        run: python3 api_security_tests.py
+
+      - name: Run baseline load test
+        working-directory: ./python-backend
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_TEST }}
+          OPENAI_VECTOR_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID_TEST }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY_PROD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_PROD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD_PROD }}
+          DATABASE_URL: postgresql://erni_user:${{ secrets.DB_PASSWORD_PROD }}@localhost:5432/erni_agents
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD_PROD }}
+          REDIS_URL: redis://:${{ secrets.REDIS_PASSWORD_PROD }}@localhost:6379/0
+          ALLOWED_HOSTS: ci.erni-gruppe.ch
+          CORS_ORIGINS: https://ci.erni-gruppe.ch
+          PUBLIC_HOSTNAME: ci.erni-gruppe.ch
+          ENVIRONMENT: production
+        run: |
+          locust -f load_testing/locustfile.py \
+            --host=http://127.0.0.1:8000 \
+            --users 5 --spawn-rate 2 --run-time 1m \
+            --headless
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f uvicorn.pid ]; then
+            kill $(cat uvicorn.pid) || true
+            rm uvicorn.pid
+          fi
+
+  # --------------------------------------------------------------------------
+  # Build Docker Images
+  # --------------------------------------------------------------------------
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test, security-scan, security-load-tests]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/erni-building-agents')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/erni-backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+      
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./python-backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/erni-frontend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+      
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ui
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --------------------------------------------------------------------------
+  # Deploy to Staging
+  # --------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-docker]
+    if: github.ref == 'refs/heads/develop'
+    # environment:
+    #   name: staging
+    #   url: https://staging.erni-agents.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /var/www/erni-agents
+            git pull origin develop
+            docker-compose pull
+            docker-compose up -d --force-recreate
+            docker-compose exec -T backend python scripts/migrate.py
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging.erni-agents.com/health || exit 1
+
+  # --------------------------------------------------------------------------
+  # Deploy to Production
+  # --------------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-docker]
+    if: github.ref == 'refs/heads/main'
+    # environment:
+    #   name: production
+    #   url: https://erni-agents.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /var/www/erni-agents
+            git pull origin main
+            docker-compose pull
+            docker-compose up -d --force-recreate
+            docker-compose exec -T backend python scripts/migrate.py
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://erni-agents.com/health || exit 1
+      
+      # Uncomment when Slack webhook is configured
+      # - name: Notify deployment
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "Production deployment completed",
+      #         "status": "${{ job.status }}"
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      #   if: always()
