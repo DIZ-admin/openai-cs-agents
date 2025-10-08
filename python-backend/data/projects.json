@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ERNI Gruppe Mock Projects",
+  "description": "Sample project data for demonstration and testing",
+  "version": "1.0.0",
+  "last_updated": "2025-10-04",
+  "projects": {
+    "2024-156": {
+      "type": "Einfamilienhaus",
+      "location": "Muri",
+      "stage": "Production",
+      "progress": 75,
+      "next_milestone": "Assembly 15-19 May 2025",
+      "responsible": "Tobias Wili",
+      "customer": "Sample Customer A",
+      "area_sqm": 150,
+      "construction_type": "Holzbau",
+      "start_date": "2024-01-15",
+      "estimated_completion": "2025-06-30"
+    },
+    "2024-089": {
+      "type": "Mehrfamilienhaus",
+      "location": "Schongau",
+      "stage": "Planning",
+      "progress": 40,
+      "next_milestone": "Building permit submission 10 June 2025",
+      "responsible": "André Arnold",
+      "customer": "Sample Customer B",
+      "area_sqm": 450,
+      "construction_type": "Systembau",
+      "start_date": "2024-03-01",
+      "estimated_completion": "2026-03-31"
+    },
+    "2023-234": {
+      "type": "Agrar",
+      "location": "Hochdorf",
+      "stage": "Completed",
+      "progress": 100,
+      "next_milestone": "Final inspection completed",
+      "responsible": "Stefan Gisler",
+      "customer": "Sample Customer C",
+      "area_sqm": 800,
+      "construction_type": "Holzbau",
+      "start_date": "2023-05-01",
+      "estimated_completion": "2024-02-28",
+      "completion_date": "2024-02-15"
+    },
+    "2024-201": {
+      "type": "Renovation",
+      "location": "Luzern",
+      "stage": "Assembly",
+      "progress": 60,
+      "next_milestone": "Roof installation 20-25 May 2025",
+      "responsible": "Wolfgang Reinsch",
+      "customer": "Sample Customer D",
+      "area_sqm": 200,
+      "construction_type": "Holzbau",
+      "start_date": "2024-02-10",
+      "estimated_completion": "2025-07-15"
+    },
+    "2024-178": {
+      "type": "Einfamilienhaus",
+      "location": "Zug",
+      "stage": "Finishing",
+      "progress": 85,
+      "next_milestone": "Interior completion 30 May 2025",
+      "responsible": "Marco Kaiser",
+      "customer": "Sample Customer E",
+      "area_sqm": 180,
+      "construction_type": "Systembau",
+      "start_date": "2024-01-20",
+      "estimated_completion": "2025-06-15"
+    }
+  },
+  "stages": [
+    "Planning",
+    "Production",
+    "Assembly",
+    "Finishing",
+    "Completed"
+  ],
+  "notes": {
+    "project_number_format": "YYYY-XXX (e.g., 2024-156)",
+    "progress_unit": "percentage (0-100)",
+    "responsible_field": "Project manager name"
+  }
+}
+

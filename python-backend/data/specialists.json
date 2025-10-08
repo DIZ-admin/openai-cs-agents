@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ERNI Gruppe Specialists",
+  "description": "Available specialists for customer consultations",
+  "version": "1.0.0",
+  "last_updated": "2025-10-04",
+  "specialists": {
+    "Architekt": {
+      "names": ["André Arnold", "Stefan Gisler"],
+      "description": "Architects for planning and design consultations",
+      "department": "Planung",
+      "availability": "Monday-Friday, 09:00-17:00"
+    },
+    "Holzbau-Ingenieur": {
+      "names": ["Andreas Wermelinger", "Tobias Wili"],
+      "description": "Timber construction engineers",
+      "department": "Holzbau",
+      "availability": "Monday-Friday, 09:00-17:00"
+    },
+    "Bauleiter": {
+      "names": ["Wolfgang Reinsch", "Marco Kaiser"],
+      "description": "Construction managers for project oversight",
+      "department": "Realisation",
+      "availability": "Monday-Friday, 09:00-17:00"
+    },
+    "Planner": {
+      "names": ["André Arnold", "Stefan Gisler"],
+      "description": "Planning specialists (alias for Architekt)",
+      "department": "Planung",
+      "availability": "Monday-Friday, 09:00-17:00"
+    },
+    "Engineer": {
+      "names": ["Andreas Wermelinger", "Tobias Wili"],
+      "description": "Engineering specialists (alias for Holzbau-Ingenieur)",
+      "department": "Holzbau",
+      "availability": "Monday-Friday, 09:00-17:00"
+    }
+  },
+  "time_slots": [
+    "09:00-10:00",
+    "14:00-15:00",
+    "16:00-17:00"
+  ],
+  "location": {
+    "name": "ERNI Gruppe",
+    "address": "Guggibadstrasse 8",
+    "postal_code": "6288",
+    "city": "Schongau",
+    "country": "Switzerland"
+  }
+}
+

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ERNI Gruppe Pricing Data",
+  "description": "Base prices per square meter (CHF/m²) for different project types and construction methods",
+  "version": "1.0.0",
+  "last_updated": "2025-10-04",
+  "pricing": {
+    "Einfamilienhaus": {
+      "Holzbau": 3000,
+      "Systembau": 2500,
+      "description": "Single-family house pricing"
+    },
+    "Mehrfamilienhaus": {
+      "Holzbau": 2800,
+      "Systembau": 2300,
+      "description": "Multi-family house pricing"
+    },
+    "Agrar": {
+      "Holzbau": 2000,
+      "Systembau": 1800,
+      "description": "Agricultural building pricing"
+    },
+    "Renovation": {
+      "Holzbau": 1500,
+      "Systembau": 1200,
+      "description": "Renovation project pricing"
+    }
+  },
+  "notes": {
+    "currency": "CHF",
+    "unit": "per square meter (m²)",
+    "estimate_range": "Final cost is calculated as: min_cost = area × base_price, max_cost = min_cost × 1.25",
+    "disclaimer": "These are preliminary estimates. Actual costs may vary based on location, materials, and specific requirements."
+  }
+}
+

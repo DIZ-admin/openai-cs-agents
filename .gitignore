@@ -61,7 +61,10 @@ db.sqlite3
 db.sqlite3-journal
 
 # SQLite conversation sessions (OpenAI Agents SDK)
-python-backend/data/
+python-backend/data/*.db
+python-backend/data/*.db-journal
+python-backend/data/*.db-shm
+python-backend/data/*.db-wal
 *.db
 *.db-journal
 *.db-shm
